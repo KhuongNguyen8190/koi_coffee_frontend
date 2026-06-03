@@ -1,16 +1,38 @@
-# React + Vite
+### 2. File `README.md` cho thư mục FRONTEND
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+```markdown
+# ☕ KOI Coffee POS - Frontend Web App
 
-Currently, two official plugins are available:
+Giao diện (Frontend) chính thức cho hệ thống máy tính tiền (POS) của KOI Coffee. Giao diện được thiết kế tối ưu hóa UX/UI cho thao tác cảm ứng trên iPad, Tablet và điện thoại di động để nhân viên thao tác nhanh nhất có thể.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Công nghệ sử dụng
+- **Core:** React.js
+- **Styling:** Tailwind CSS
+- **HTTP Client:** Axios
+- **UI/UX Components:** React Hot Toast
+- **Real-time Sync:** WebSocket Hook tuỳ chỉnh
 
-## React Compiler
+## 🛠️ Yêu cầu hệ thống
+- Node.js (phiên bản v16.x trở lên).
+- Trình quản lý gói `npm` hoặc `yarn`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ⚙️ Cài đặt & Chạy dự án
 
-## Expanding the ESLint configuration
+1. **Clone repository:**
+```bash
+   git clone [https://github.com/your-username/koi-coffee-frontend.git](https://github.com/your-username/koi-coffee-frontend.git)
+   cd koi-coffee-frontend
+Cài đặt các gói phụ thuộc (Dependencies):
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Bash
+   npm install
+Cấu hình kết nối API:
+Mở file cấu hình API (ví dụ: src/services/apiService.js) và đảm bảo đường dẫn trỏ đúng về Backend Server:
+
+JavaScript
+   // Chuyển sang URL của Backend Render khi deploy production
+   export const API_BASE_URL = 'http://localhost:8080';
+Khởi chạy môi trường Development:
+
+Bash
+   npm start
