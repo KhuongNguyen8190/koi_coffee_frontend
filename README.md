@@ -36,3 +36,24 @@ Khởi chạy môi trường Development:
 
 Bash
    npm start
+Ứng dụng sẽ tự động mở trên trình duyệt tại địa chỉ http://localhost:3000 hoặc http://localhost:5173.
+
+📦 Triển khai (Deployment)
+Dự án có thể dễ dàng được triển khai miễn phí thông qua Vercel:
+
+Đẩy mã nguồn lên GitHub.
+
+Đăng nhập Vercel, chọn Add New Project và liên kết với kho lưu trữ này.
+
+Vercel sẽ tự động cài đặt, build và cung cấp chứng chỉ HTTPS bảo mật.
+
+🌟 Tính năng nổi bật
+Giao diện POS thực tế: Thao tác chọn món 1 chạm, trượt mở giỏ hàng, hỗ trợ tính toán chiết khấu (VNĐ và %).
+
+Đồng bộ thời gian thực: Lắng nghe và phản hồi ngay lập tức các sự kiện chốt ca, cập nhật trạng thái đơn hàng, hay thông báo hệ thống mà không cần reload trang.
+
+Responsive Design: Giao diện co giãn thông minh, hoạt động mượt mà trên cả PC, Tablet ngang/dọc và Mobile.
+
+Bảo vệ tài khoản: Cơ chế khoá màn hình chờ 10s khi phát hiện tài khoản bị đăng nhập đè từ thiết bị khác.
+
+Phát triển bởi Nguyễn Duy Khương.
