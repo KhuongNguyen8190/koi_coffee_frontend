@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../../services/apiService';
-import { useWebSocket } from '../../hooks/useWebSocket'; // 🚀 GỌI FILE SOCKET TẬP TRUNG
+import { useWebSocket } from '../../hooks/useWebSocket'; 
 
 export default function AdminOrderDashboard() {
     const [orders, setOrders] = useState([]);
@@ -51,7 +51,7 @@ export default function AdminOrderDashboard() {
                 setOrders(sorted);
             }
         } catch (error) {
-            toast.error("Không thể tải danh sách đơn hàng!");
+            toast.error("Không thể tải danh sách đơn hàng!", { id: 'fetch_order_err' });
         } finally {
             setIsLoading(false);
         }
@@ -82,21 +82,23 @@ export default function AdminOrderDashboard() {
 
     const handleSaveEdit = async (e) => {
         e.preventDefault();
+        
+        // 🚀 BƯỚC QUAN TRỌNG: Xóa sạch toast cũ trước khi xử lý để chống treo trên điện thoại
+        toast.dismiss(); 
+        
         setIsSaving(true);
         try {
             const res = await apiService.updateAdminOrder(editingAdminOrder.id, editFormData);
             if (res.status === 'success') {
-                toast.success("Cập nhật trạng thái đơn hàng thành công!");
+                // 🚀 GẮN THÊM ID ĐỂ TOAST TỰ GHI ĐÈ
+                toast.success("Cập nhật trạng thái thành công!", { id: 'update_status_ok', duration: 2000 });
                 setEditingAdminOrder(null);
-                setTimeout(() => {
-                    fetchOrders(res.data);
-                }, 2000);
                 fetchOrders(); 
             } else {
-                toast.error(res.message || "Cập nhật thất bại!");
+                toast.error(res.message || "Cập nhật thất bại!", { id: 'update_status_fail', duration: 2500 });
             }
         } catch (error) {
-            toast.error("Lỗi hệ thống khi cập nhật trạng thái!");
+            toast.error("Lỗi hệ thống khi cập nhật trạng thái!", { id: 'update_status_sys_err', duration: 2500 });
         } finally {
             setIsSaving(false);
         }
@@ -139,7 +141,7 @@ export default function AdminOrderDashboard() {
 
         const validStatuses = ['PAID', 'COMPLETED', 'HOÀN THÀNH'];
         const pendingStatuses = ['PENDING', 'MỚI', 'PROCESSING', 'ĐANG XỬ LÝ', 'SHIPPING', 'ĐANG GIAO'];
-        const cancelledStatuses = ['CANCELLED', 'HỦY']; // Thêm trạng thái hủy
+        const cancelledStatuses = ['CANCELLED', 'HỦY']; 
 
         const completedOrders = result.filter(o => validStatuses.includes(String(o.status).toUpperCase()));
         const pendingOrders = result.filter(o => pendingStatuses.includes(String(o.status).toUpperCase()));
@@ -162,7 +164,7 @@ export default function AdminOrderDashboard() {
                 pendingRevenue, 
                 totalOrders: result.length, 
                 completedOrders: completedOrders.length,
-                cancelledCount: cancelledOrders.length // Trả về số đơn bị hủy
+                cancelledCount: cancelledOrders.length 
             } 
         };
     }, [orders, searchTerm, filterType, dateValue, monthValue, yearValue, startDate, endDate]);
@@ -268,7 +270,6 @@ export default function AdminOrderDashboard() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Chờ Thanh Toán</p>
                     <h3 className="text-xl font-black text-amber-500">{formatCurrency(metrics.pendingRevenue)}</h3>
                 </div>
-                {/* 🚀 THÊM MỚI BẢNG THỐNG KÊ ĐƠN BỊ HỦY Ở ĐÂY */}
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-rose-500">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Đơn Bị Hủy</p>
                     <h3 className="text-xl font-black text-rose-600">
