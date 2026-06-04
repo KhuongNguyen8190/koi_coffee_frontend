@@ -5,13 +5,10 @@ import { apiService } from '../../services/apiService';
 export default function AdminProductManager({ categories = [] }) {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    
-    // State cho Modal (Form thêm/sửa)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [formData, setFormData] = useState({ name: '', price: '', sku: '', categoryId: '', status: 'ACTIVE' });
 
-    // Gọi API lấy data ngay khi Component được mount
     useEffect(() => {
         fetchAdminProducts();
     }, []);
@@ -28,7 +25,6 @@ export default function AdminProductManager({ categories = [] }) {
         }
     };
 
-    // Mở Modal Thêm mới
     const handleAddNew = () => {
         setEditingProduct(null);
         setFormData({ 
@@ -39,20 +35,16 @@ export default function AdminProductManager({ categories = [] }) {
         setIsModalOpen(true);
     };
 
-    // Mở Modal Chỉnh sửa
     const handleEdit = (prod) => {
         setEditingProduct(prod);
         setFormData({
-            name: prod.name,
-            price: prod.price,
-            sku: prod.sku || '',
+            name: prod.name, price: prod.price, sku: prod.sku || '',
             categoryId: prod.category ? prod.category.id : '',
             status: prod.status ? prod.status.toUpperCase() : 'ACTIVE'
         });
         setIsModalOpen(true);
     };
 
-    // Xử lý Lưu (Thêm hoặc Sửa)
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.name || !formData.price || !formData.categoryId) {
@@ -61,22 +53,19 @@ export default function AdminProductManager({ categories = [] }) {
 
         try {
             if (editingProduct) {
-                // SỬA
                 const res = await apiService.updateAdminProduct(editingProduct.id, formData);
                 if (res.status === 'success') toast.success("Cập nhật thành công!");
             } else {
-                // THÊM MỚI
                 const res = await apiService.createAdminProduct(formData);
                 if (res.status === 'success') toast.success("Thêm món mới thành công!");
             }
             setIsModalOpen(false);
-            fetchAdminProducts(); // Load lại bảng
+            fetchAdminProducts(); // 🚀 Dữ liệu tải lại ngầm, Toast vẫn hiện bình thường
         } catch (error) {
             toast.error("Thao tác thất bại!");
         }
     };
 
-    // HÀM XÓA MÓN ĂN (GIAO DIỆN ĐẸP)
     const handleDeleteProduct = (id, name) => {
         toast((t) => (
             <div className="flex flex-col gap-3 min-w-[280px] animate-in zoom-in-95 duration-200">
@@ -85,13 +74,10 @@ export default function AdminProductManager({ categories = [] }) {
                     <p className="font-black text-slate-800 text-lg">Xóa món ăn?</p>
                 </div>
                 <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                    Bạn đang xóa món <strong className="text-rose-600">{name}</strong> khỏi thực đơn. Hãy chắc chắn món này chưa từng nằm trong hóa đơn nào!
+                    Bạn đang xóa món <strong className="text-rose-600">{name}</strong>. Hãy chắc chắn món này chưa từng nằm trong hóa đơn nào!
                 </p>
                 <div className="flex gap-2 mt-2">
-                    <button 
-                        onClick={() => toast.dismiss(t.id)} 
-                        className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
-                    >
+                    <button onClick={() => toast.dismiss(t.id)} className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
                         Hủy
                     </button>
                     <button 
@@ -101,7 +87,6 @@ export default function AdminProductManager({ categories = [] }) {
                                 const res = await apiService.deleteAdminProduct(id);
                                 if (res.status === 'success') {
                                     toast.success("Đã xóa món ăn khỏi thực đơn!");
-                                    // 🚀 Đã sửa thành fetchAdminProducts()
                                     fetchAdminProducts(); 
                                 } else {
                                     toast.error(res.message || "Xóa thất bại!");
@@ -116,31 +101,28 @@ export default function AdminProductManager({ categories = [] }) {
                     </button>
                 </div>
             </div>
-        ), { duration: Infinity, id: `delete-product-${id}`, position: 'top-center', style: { padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' } });
+        ), { duration: Infinity, id: `delete-product-${id}` });
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm p-6 w-full">
+        <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6 w-full">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black text-slate-800">Quản Lý Thực Đơn</h2>
-                <button 
-                    onClick={handleAddNew}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm"
-                >
-                    + Thêm Món Mới
+                <h2 className="text-lg md:text-xl font-black text-slate-800">Quản Lý Thực Đơn</h2>
+                <button onClick={handleAddNew} className="bg-emerald-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm hover:bg-emerald-700 transition-colors shadow-sm">
+                    + Thêm Món
                 </button>
             </div>
 
             {loading ? (
                 <div className="text-center text-slate-400 py-10 font-bold">Đang tải dữ liệu...</div>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm text-slate-600">
-                        <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-xs">
+                <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
+                    <table className="w-full min-w-[500px] text-left text-xs md:text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] md:text-xs border-b border-slate-200">
                             <tr>
                                 <th className="px-4 py-3">ID</th>
                                 <th className="px-4 py-3">Tên món</th>
-                                <th className="px-4 py-3">Danh mục</th>
+                                <th className="px-4 py-3 hidden md:table-cell">Danh mục</th>
                                 <th className="px-4 py-3">Giá</th>
                                 <th className="px-4 py-3 text-center">Trạng thái</th>
                                 <th className="px-4 py-3 text-right">Thao tác</th>
@@ -153,19 +135,17 @@ export default function AdminProductManager({ categories = [] }) {
                             {products.map(p => (
                                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-4 py-3 font-bold text-slate-400">#{p.id}</td>
-                                    <td className="px-4 py-3 font-bold text-slate-800">{p.name}</td>
-                                    <td className="px-4 py-3">{p.category?.name || '---'}</td>
-                                    <td className="px-4 py-3 font-bold text-emerald-600">{p.price.toLocaleString()} đ</td>
+                                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{p.name}</td>
+                                    <td className="px-4 py-3 hidden md:table-cell">{p.category?.name || '---'}</td>
+                                    <td className="px-4 py-3 font-bold text-emerald-600 whitespace-nowrap">{p.price.toLocaleString()} đ</td>
                                     <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${p.status?.toUpperCase() === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                        <span className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-black uppercase whitespace-nowrap ${p.status?.toUpperCase() === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                             {p.status?.toUpperCase() === 'ACTIVE' ? 'Đang bán' : 'Hết món'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-right space-x-2">
-                                        <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-bold bg-blue-50 px-3 py-1 rounded-lg">Sửa</button>
-                                        
-                                        {/* 🚀 Đã sửa từ handleDelete thành handleDeleteProduct */}
-                                        <button onClick={() => handleDeleteProduct(p.id, p.name)} className="text-rose-500 hover:text-rose-700 font-bold bg-rose-50 px-3 py-1 rounded-lg">Xóa</button>
+                                    <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                                        <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-bold bg-blue-50 px-2 md:px-3 py-1 rounded-lg">Sửa</button>
+                                        <button onClick={() => handleDeleteProduct(p.id, p.name)} className="text-rose-500 hover:text-rose-700 font-bold bg-rose-50 px-2 md:px-3 py-1 rounded-lg">Xóa</button>
                                     </td>
                                 </tr>
                             ))}
@@ -218,12 +198,8 @@ export default function AdminProductManager({ categories = [] }) {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-100">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">
-                                    Hủy
-                                </button>
-                                <button type="submit" className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">
-                                    Lưu Thay Đổi
-                                </button>
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">Hủy</button>
+                                <button type="submit" className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Lưu Thay Đổi</button>
                             </div>
                         </form>
                     </div>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../services/apiService';
-import { useWebSocket } from '../hooks/useWebSocket'; 
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function Header({ currentUser, onLogout, setCurrentUser }) {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const [notifications, setNotifications] = useState([]);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
 
@@ -29,16 +29,16 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
         try {
             if (!currentUser?.id) return;
             const res = await apiService.getNotifications(currentUser.id);
-            
+
             const rawData = res.data ? res.data : res;
-            
+
             if (Array.isArray(rawData)) {
                 // 🚀 YÊU CẦU 1: Chỉ lấy 20 thông báo gần nhất bằng .slice(0, 20)
                 const normalizedData = rawData.map(n => ({
                     ...n,
-                    isRead: n.isRead === true || n.read === true 
+                    isRead: n.isRead === true || n.read === true
                 })).slice(0, 20);
-                
+
                 setNotifications(normalizedData);
             }
         } catch (error) {
@@ -66,12 +66,12 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
             const timer = setTimeout(() => {
                 setNotifications(prev => {
                     const unread = prev.filter(n => !n.isRead);
-                    
+
                     // Gọi API ngầm để đánh dấu đã đọc trên Database
                     unread.forEach(n => {
-                        apiService.readNotification(n.id).catch(() => {});
+                        apiService.readNotification(n.id).catch(() => { });
                     });
-                    
+
                     // Xóa chấm đỏ (isRead = true) trên giao diện
                     return prev.map(n => ({ ...n, isRead: true }));
                 });
@@ -85,7 +85,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
         if (!isNotifOpen) {
             setIsNotifOpen(true);
             // 🚀 YÊU CẦU 2: Mất chấm đỏ trên chuông khi bấm vào
-            setHideBellDot(true); 
+            setHideBellDot(true);
             // Bắt đầu tính giờ 10 phút
             setBellOpenedAt(Date.now());
         } else {
@@ -97,7 +97,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
         try {
             await apiService.readNotification(id);
             // 🚀 YÊU CẦU 3 (Phần 2): Click vào là mất chấm đỏ của chính nó ngay lập tức
-            setNotifications(prev => 
+            setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, isRead: true } : n)
             );
         } catch (error) {
@@ -106,7 +106,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
     };
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
-    
+
     // Logic: Chỉ hiện chấm trên chuông nếu có tin chưa đọc VÀ chưa bị người dùng bấm vào xem
     const showBellDot = unreadCount > 0 && !hideBellDot;
 
@@ -121,38 +121,36 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                 </div>
                 <p className="text-sm text-slate-500 font-medium mb-3">Bạn sẽ cần đăng nhập lại để sử dụng hệ thống.</p>
                 <div className="flex gap-2 mt-2">
-                    <button 
-                        onClick={() => toast.dismiss(t.id)} 
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
                         className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
                     >
                         Trở lại
                     </button>
-                    <button 
+                    <button
                         onClick={() => {
                             toast.dismiss();
-                            setTimeout(() => {
-                                onLogout(); 
-                            }, 100);
-                        }} 
+                            onLogout();
+                        }}
                         className="flex-1 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 shadow-md transition-all"
                     >
                         Đăng xuất
                     </button>
                 </div>
             </div>
-        ), { 
-            duration: Infinity, 
+        ), {
+            duration: 5000,
             id: 'logout-confirm',
             position: 'top-center',
-            style: { padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' } 
+            style: { padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }
         });
     };
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
-        
+
         if (!fullName.trim()) return toast.error("Họ và tên không được để trống!");
-        
+
         if (newPassword || confirmPassword || oldPassword) {
             if (!oldPassword) return toast.error("Vui lòng nhập mật khẩu hiện tại!");
             if (!newPassword) return toast.error("Vui lòng nhập mật khẩu mới!");
@@ -169,13 +167,13 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
             };
 
             const res = await apiService.updateProfile(currentUser.id, payload);
-            
+
             if (res.status === 'success') {
                 toast.success("Cập nhật thông tin cá nhân thành công!");
-                
+
                 const updatedUser = { ...currentUser, fullName: fullName.trim() };
                 localStorage.setItem('user_session', JSON.stringify(updatedUser));
-                
+
                 if (setCurrentUser) {
                     setCurrentUser(updatedUser);
                 } else {
@@ -199,7 +197,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
     return (
         <>
             <header className="bg-white border-b border-slate-200 px-3 md:px-6 py-2.5 md:py-4 flex justify-between items-center shadow-sm shrink-0 relative z-[60] w-full">
-                
+
                 {/* Logo & Tiêu đề */}
                 <div className="flex items-center gap-2 md:gap-3 shrink-0">
                     <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center text-white text-base md:text-xl shadow-md shrink-0">
@@ -214,8 +212,8 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                 {/* Khu vực Nút chức năng */}
                 <div className="flex items-center gap-1.5 md:gap-4 shrink-0">
                     <div className="relative flex items-center shrink-0">
-                        <button 
-                            onClick={handleToggleBell} 
+                        <button
+                            onClick={handleToggleBell}
                             className="relative p-1.5 md:p-2 text-lg md:text-xl text-slate-600 hover:bg-slate-100 rounded-full transition-colors outline-none shrink-0"
                         >
                             🔔
@@ -230,7 +228,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                             <>
                                 {/* Overlay bấm ra ngoài để đóng */}
                                 <div className="fixed inset-0 z-[90]" onClick={() => setIsNotifOpen(false)}></div>
-                                
+
                                 <div className="fixed sm:absolute top-[70px] sm:top-12 left-4 right-4 sm:left-auto sm:right-0 sm:w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                     <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                                         <h4 className="font-black text-slate-800 text-xs md:text-sm uppercase tracking-wider">Thông báo</h4>
@@ -244,8 +242,8 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                                             </div>
                                         ) : (
                                             notifications.map(n => (
-                                                <div 
-                                                    key={n.id} 
+                                                <div
+                                                    key={n.id}
                                                     onClick={() => !n.isRead && handleReadNotification(n.id)}
                                                     className={`p-3 rounded-xl transition-all border ${n.isRead ? 'bg-white border-slate-100' : 'bg-emerald-50/70 border-emerald-100 cursor-pointer hover:bg-emerald-100 hover:shadow-sm'}`}
                                                 >
@@ -269,7 +267,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
 
                     <div className="w-px h-5 md:h-6 bg-slate-200 mx-0.5 md:mx-1 shrink-0"></div>
 
-                    <div 
+                    <div
                         onClick={() => setIsProfileOpen(true)}
                         className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-slate-50 p-1 md:p-1.5 pr-1 md:pr-3 rounded-2xl transition-colors border border-transparent hover:border-slate-100 shrink-0"
                     >
@@ -304,27 +302,27 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                                 ✖
                             </button>
                         </div>
-                        
+
                         <form onSubmit={handleUpdateProfile} className="p-5 md:p-6 space-y-5 md:space-y-6">
                             <div className="space-y-3">
                                 <h4 className="text-xs font-black text-emerald-600 uppercase tracking-wider">Hồ sơ cơ bản</h4>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 mb-1 block">Tài khoản đăng nhập</label>
-                                    <input 
-                                        type="text" 
-                                        value={currentUser?.username || ''} 
-                                        disabled 
-                                        className="w-full border border-slate-200 bg-slate-100 text-slate-500 p-3 rounded-xl font-medium cursor-not-allowed text-sm" 
+                                    <input
+                                        type="text"
+                                        value={currentUser?.username || ''}
+                                        disabled
+                                        className="w-full border border-slate-200 bg-slate-100 text-slate-500 p-3 rounded-xl font-medium cursor-not-allowed text-sm"
                                     />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 mb-1 block">Họ và tên hiển thị *</label>
-                                    <input 
-                                        type="text" 
-                                        value={fullName} 
-                                        onChange={(e) => setFullName(e.target.value)} 
-                                        className="w-full border border-slate-200 bg-white p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-slate-700 transition-colors text-sm" 
-                                        required 
+                                    <input
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        className="w-full border border-slate-200 bg-white p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-slate-700 transition-colors text-sm"
+                                        required
                                     />
                                 </div>
                             </div>
@@ -334,40 +332,40 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                             <div className="space-y-3">
                                 <h4 className="text-xs font-black text-amber-600 uppercase tracking-wider">Đổi mật khẩu (Bỏ trống nếu không đổi)</h4>
                                 <div>
-                                    <input 
-                                        type="password" 
-                                        placeholder="Mật khẩu hiện tại" 
-                                        value={oldPassword} 
-                                        onChange={(e) => setOldPassword(e.target.value)} 
-                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors mb-2 md:mb-3" 
+                                    <input
+                                        type="password"
+                                        placeholder="Mật khẩu hiện tại"
+                                        value={oldPassword}
+                                        onChange={(e) => setOldPassword(e.target.value)}
+                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors mb-2 md:mb-3"
                                     />
-                                    <input 
-                                        type="password" 
-                                        placeholder="Mật khẩu MỚI" 
-                                        value={newPassword} 
-                                        onChange={(e) => setNewPassword(e.target.value)} 
-                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors mb-2 md:mb-3" 
+                                    <input
+                                        type="password"
+                                        placeholder="Mật khẩu MỚI"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors mb-2 md:mb-3"
                                     />
-                                    <input 
-                                        type="password" 
-                                        placeholder="Nhập lại mật khẩu MỚI" 
-                                        value={confirmPassword} 
-                                        onChange={(e) => setConfirmPassword(e.target.value)} 
-                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors" 
+                                    <input
+                                        type="password"
+                                        placeholder="Nhập lại mật khẩu MỚI"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-amber-500 focus:bg-white outline-none font-medium text-sm transition-colors"
                                     />
                                 </div>
                             </div>
 
                             <div className="pt-2 flex gap-3">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setIsProfileOpen(false)} 
+                                <button
+                                    type="button"
+                                    onClick={() => setIsProfileOpen(false)}
                                     className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm"
                                 >
                                     Hủy
                                 </button>
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     disabled={isSubmitting}
                                     className="flex-[2] py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-md transition-colors disabled:opacity-50 text-sm"
                                 >

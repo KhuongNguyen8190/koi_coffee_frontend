@@ -38,15 +38,6 @@ Bash
    npm start
 Ứng dụng sẽ tự động mở trên trình duyệt tại địa chỉ http://localhost:3000 hoặc http://localhost:5173.
 
-📦 Triển khai (Deployment)
-Dự án có thể dễ dàng được triển khai miễn phí thông qua Vercel:
-
-Đẩy mã nguồn lên GitHub.
-
-Đăng nhập Vercel, chọn Add New Project và liên kết với kho lưu trữ này.
-
-Vercel sẽ tự động cài đặt, build và cung cấp chứng chỉ HTTPS bảo mật.
-
 🌟 Tính năng nổi bật
 Giao diện POS thực tế: Thao tác chọn món 1 chạm, trượt mở giỏ hàng, hỗ trợ tính toán chiết khấu (VNĐ và %).
 

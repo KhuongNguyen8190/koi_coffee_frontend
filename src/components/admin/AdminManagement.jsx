@@ -5,7 +5,7 @@ import AdminProductManager from './AdminProductManager';
 import StaffManager from './StaffManager';
 import AdminOrderDashboard from './AdminOrderDashboard';
 import ShiftConfig from './ShiftConfig'; 
-import AdminNotificationPanel from './AdminNotificationPanel'; // 🚀 ĐÃ IMPORT COMPONENT MỚI
+import AdminNotificationPanel from './AdminNotificationPanel';
 
 export default function AdminManagement({ users = [], categories = [], products = [], ordersHistory = [] }) {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -76,7 +76,7 @@ export default function AdminManagement({ users = [], categories = [], products 
                                     toast.error(res.message || "Xóa thất bại!");
                                 }
                             } catch (error) {
-                                toast.error("Không thể xóa! Danh mục này đang chứa món ăn.");
+                                toast.error("Không thể xóa! Danh mục đang chứa món ăn.");
                             }
                         }} 
                         className="flex-1 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 shadow-md transition-all"
@@ -89,24 +89,24 @@ export default function AdminManagement({ users = [], categories = [], products 
     };
 
     const renderMenu = () => (
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 animate-in fade-in">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 md:gap-6 animate-in fade-in">
             {/* CỘT 1: QUẢN LÝ DANH MỤC */}
-            <div className="xl:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-fit max-h-[80vh] flex flex-col">
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Danh Mục</h2>
+            <div className="xl:col-span-1 bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-fit max-h-[45vh] md:max-h-[80vh] flex flex-col">
+                <div className="p-3 md:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                    <h2 className="text-xs md:text-sm font-black text-slate-800 uppercase tracking-wider">Danh Mục</h2>
                     <button 
                         onClick={() => { setEditingCat(null); setCatName(''); setIsCatModalOpen(true); }}
-                        className="bg-emerald-600 text-white px-3 py-1.5 rounded font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm"
+                        className="bg-emerald-600 text-white px-2.5 py-1 md:px-3 md:py-1.5 rounded font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm"
                     >
                         +
                     </button>
                 </div>
-                <ul className="divide-y divide-slate-100 overflow-y-auto">
+                <ul className="divide-y divide-slate-100 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     {adminCategories.length === 0 ? <li className="p-4 text-center text-slate-400 text-xs font-bold">Chưa có dữ liệu</li> : null}
                     {adminCategories.map((c) => (
-                        <li key={c.id} className="p-4 hover:bg-slate-50 flex justify-between items-center group transition-colors">
-                            <span className="font-bold text-sm text-slate-700 truncate pr-2">{c.name}</span>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <li key={c.id} className="p-3 md:p-4 hover:bg-slate-50 flex justify-between items-center group transition-colors">
+                            <span className="font-bold text-xs md:text-sm text-slate-700 truncate pr-2">{c.name}</span>
+                            <div className="flex gap-1.5 md:gap-2 opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
                                 <button 
                                     onClick={() => { setEditingCat(c); setCatName(c.name); setIsCatModalOpen(true); }} 
                                     className="text-[10px] font-bold text-blue-500 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
@@ -133,8 +133,8 @@ export default function AdminManagement({ users = [], categories = [], products 
             {/* MODAL THÊM/SỬA DANH MỤC */}
             {isCatModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-black text-slate-800 mb-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm p-5 md:p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h3 className="text-base md:text-lg font-black text-slate-800 mb-4">
                             {editingCat ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Mới'}
                         </h3>
                         <form onSubmit={handleSaveCategory}>
@@ -144,11 +144,11 @@ export default function AdminManagement({ users = [], categories = [], products 
                                 placeholder="Nhập tên (VD: Trà Sữa...)"
                                 value={catName}
                                 onChange={e => setCatName(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 mb-5"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 mb-4 md:mb-5"
                             />
                             <div className="flex justify-end gap-2">
-                                <button type="button" onClick={() => setIsCatModalOpen(false)} className="px-4 py-2 rounded-lg font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">Hủy</button>
-                                <button type="submit" className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Lưu lại</button>
+                                <button type="button" onClick={() => setIsCatModalOpen(false)} className="px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">Hủy</button>
+                                <button type="submit" className="px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Lưu lại</button>
                             </div>
                         </form>
                     </div>
@@ -159,23 +159,47 @@ export default function AdminManagement({ users = [], categories = [], products 
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50">
-            {/* 🚀 ĐÃ BỔ SUNG TAB THÔNG BÁO */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4 flex gap-4 overflow-x-auto scrollbar-hide shadow-sm shrink-0">
-                <button onClick={() => setActiveTab('dashboard')} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>📊 Dashboard</button>
-                <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${activeTab === 'users' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>👥 Tài Khoản</button>
-                <button onClick={() => setActiveTab('menu')} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${activeTab === 'menu' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>🍔 Thực Đơn</button>
-                <button onClick={() => setActiveTab('shifts')} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${activeTab === 'shifts' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>🕒 Giao Ca</button>
-                <button onClick={() => setActiveTab('notifications')} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${activeTab === 'notifications' ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>📢 Thông Báo</button>
+            {/* 🚀 THANH TABS ĐÃ TỐI ƯU CHO MOBILE (Nhỏ gọn, cuộn mượt, không bị thô) */}
+            <div className="bg-white border-b border-slate-200 px-3 py-2.5 md:px-6 md:py-4 flex gap-2 md:gap-4 overflow-x-auto shadow-sm shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <button 
+                    onClick={() => setActiveTab('dashboard')} 
+                    className={`px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl font-bold md:font-black text-[11px] md:text-sm flex items-center gap-1.5 whitespace-nowrap transition-all ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <span className="text-sm md:text-base">📊</span> Dashboard
+                </button>
+                <button 
+                    onClick={() => setActiveTab('users')} 
+                    className={`px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl font-bold md:font-black text-[11px] md:text-sm flex items-center gap-1.5 whitespace-nowrap transition-all ${activeTab === 'users' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <span className="text-sm md:text-base">👥</span> Tài Khoản
+                </button>
+                <button 
+                    onClick={() => setActiveTab('menu')} 
+                    className={`px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl font-bold md:font-black text-[11px] md:text-sm flex items-center gap-1.5 whitespace-nowrap transition-all ${activeTab === 'menu' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <span className="text-sm md:text-base">🍔</span> Thực Đơn
+                </button>
+                <button 
+                    onClick={() => setActiveTab('shifts')} 
+                    className={`px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl font-bold md:font-black text-[11px] md:text-sm flex items-center gap-1.5 whitespace-nowrap transition-all ${activeTab === 'shifts' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <span className="text-sm md:text-base">🕒</span> Giao Ca
+                </button>
+                <button 
+                    onClick={() => setActiveTab('notifications')} 
+                    className={`px-3 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl font-bold md:font-black text-[11px] md:text-sm flex items-center gap-1.5 whitespace-nowrap transition-all ${activeTab === 'notifications' ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <span className="text-sm md:text-base">📢</span> Thông Báo
+                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-100/50">
-                {/* Render các component độc lập dựa trên activeTab */}
+            {/* 🚀 KHUNG CONTENT TỐI ƯU (Thu hẹp padding trên mobile để Table hiện to hơn) */}
+            <div className="flex-1 overflow-y-auto p-2 md:p-6 bg-slate-100/50">
                 {activeTab === 'dashboard' && <AdminOrderDashboard />}
                 {activeTab === 'users' && <StaffManager users={users} />} 
                 {activeTab === 'menu' && renderMenu()}
                 {activeTab === 'shifts' && <ShiftConfig />}
                 
-                {/* 🚀 RENDER GIAO DIỆN PHÁT THÔNG BÁO Ở GIỮA MÀN HÌNH */}
                 {activeTab === 'notifications' && (
                     <div className="flex justify-center items-start mt-4 animate-in fade-in zoom-in-95 duration-200">
                         <AdminNotificationPanel />

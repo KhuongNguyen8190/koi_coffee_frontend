@@ -6,7 +6,7 @@ export default function Login({ onLoginSuccess }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // 🚀 SỬA LỖI F5: Lấy thời gian đếm ngược ngay khi vừa load web để không bị chớp màn hình/mất số giây
     const [cooldown, setCooldown] = useState(() => {
         const penaltyUntil = localStorage.getItem('kickout_penalty_until');
@@ -38,7 +38,7 @@ export default function Login({ onLoginSuccess }) {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-
+        toast.dismiss();
         // 1. KIỂM TRA PHẠT 10S NGAY KHI BẤM NÚT (Dù cho phép bấm nút, hàm này vẫn chặn API lại)
         const penaltyUntil = localStorage.getItem('kickout_penalty_until');
         if (penaltyUntil) {
@@ -57,14 +57,16 @@ export default function Login({ onLoginSuccess }) {
         setIsLoading(true);
         try {
             const res = await apiService.login({ username, password });
-            
+
             if (res && res.data) {
                 toast.success("Đăng nhập thành công!");
                 localStorage.setItem('user_session', JSON.stringify(res.data));
-                
+
                 // Đảm bảo xóa sạch án phạt sau khi đăng nhập thành công
-                localStorage.removeItem('kickout_penalty_until'); 
-                
+                localStorage.removeItem('kickout_penalty_until');
+                setTimeout(() => {
+                    onLoginSuccess(res.data);
+                }, 2000);
                 onLoginSuccess(res.data);
             } else {
                 toast.error("Sai tài khoản hoặc mật khẩu!");
@@ -90,8 +92,8 @@ export default function Login({ onLoginSuccess }) {
                 <form onSubmit={handleLogin} className="space-y-5">
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tài khoản</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="Nhập tên đăng nhập..."
@@ -100,8 +102,8 @@ export default function Login({ onLoginSuccess }) {
                     </div>
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Mật khẩu</label>
-                        <input 
-                            type="password" 
+                        <input
+                            type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Nhập mật khẩu..."
@@ -110,15 +112,15 @@ export default function Login({ onLoginSuccess }) {
                     </div>
 
                     {/* 🚀 CHỈNH SỬA Ở ĐÂY: Cho phép bấm vào khi đang cooldown, chuyển nút sang màu cam để cảnh báo */}
-                    <button 
-                        type="submit" 
+                    <button
+                        type="submit"
                         disabled={isLoading}
                         className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex justify-center items-center gap-2
-                            ${isLoading 
-                                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' 
+                            ${isLoading
+                                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                                 : cooldown > 0
-                                ? 'bg-amber-500 text-white hover:bg-amber-600 hover:shadow-amber-500/30'
-                                : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-600/30'
+                                    ? 'bg-amber-500 text-white hover:bg-amber-600 hover:shadow-amber-500/30'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-600/30'
                             }`}
                     >
                         {isLoading ? (

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE_URL = 'http://192.168.1.8:8080';
+export const API_BASE_URL = 'http://192.168.1.46:8080';
 const API_URL = `${API_BASE_URL}/api`;
 
 const handleResponse = (response) => response.data;

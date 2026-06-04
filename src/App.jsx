@@ -19,15 +19,15 @@ export default function App() {
     const {
         currentUser, setCurrentUser, isAuthChecked,
         activeTab, setActiveTab,
+        isShiftOpen,
         cart, ordersHistory, lastShiftEnd, editingOrderId,
-        menu, products, categories, 
+        menu, products, categories,
         handleLogout, handleEndShift,
         addToCart, updateQuantity, updateNote,
         handleCreateOrder, handlePayOrder, handleSplitOrder, handleEditOrder, cancelEdit,
         handleUpdateOrder,
-        
-        handleCancelOrder, 
-        handleRestoreOrder, 
+        handleCancelOrder,
+        handleRestoreOrder,
         handleChangePaymentMethod,
         handleChangeOrderStatus
     } = usePOSLogic();
@@ -43,18 +43,38 @@ export default function App() {
     }, [ordersHistory, lastShiftEnd]);
 
     if (!isAuthChecked) return <div className="min-h-screen bg-slate-900 flex justify-center items-center text-white font-bold tracking-wider">ĐANG TẢI...</div>;
-    if (!currentUser) return <><Toaster /><Login onLoginSuccess={setCurrentUser} /></>;
+
+    // 🚀 Đã giới hạn maxToasts cho màn hình đăng nhập
+    if (!currentUser) return (
+        <>
+            <Toaster maxToasts={1} toastOptions={{ duration: 2000, style: { maxWidth: '90vw', fontSize: '14px' } }} />
+            <Login onLoginSuccess={setCurrentUser} />
+        </>
+    );
 
     return (
-        // 🚀 THAY ĐỔI QUAN TRỌNG: h-screen thành h-[100dvh], thêm w-full max-w-[100vw] để chống tràn ngang
         <div className="flex flex-col h-[100dvh] w-full max-w-[100vw] bg-slate-100 font-sans text-slate-800 overflow-hidden">
-            <Toaster position="top-center" />
+
+            <Toaster
+                position="top-center"
+                reverseOrder={false}
+                gutter={8}
+                toastOptions={{
+                    duration: 2000,
+                    maxToasts: 1,
+                    style: {
+                        maxWidth: '90vw',
+                        fontSize: '14px',
+                        borderRadius: '16px'
+                    }
+                }}
+            />
 
             {/* Header */}
             <Header currentUser={currentUser} onLogout={handleLogout} setCurrentUser={setCurrentUser} />
 
             <div className="flex flex-1 overflow-hidden flex-col-reverse md:flex-row relative">
-                
+
                 {/* THANH MENU */}
                 <nav className="w-full h-[65px] md:w-20 md:h-full bg-slate-900 flex flex-row md:flex-col items-center justify-around md:justify-start md:py-6 shadow-[0_-4px_20px_rgba(0,0,0,0.15)] md:shadow-xl z-40 shrink-0">
                     <button onClick={() => setActiveTab('pos')} className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${activeTab === 'pos' ? 'bg-[#00a67d] text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
@@ -83,17 +103,37 @@ export default function App() {
 
                 {/* KHU VỰC HIỂN THỊ CHÍNH */}
                 <main className="flex-1 flex flex-col overflow-hidden w-full">
-                    
+
                     {/* KHU VỰC BÁN HÀNG */}
                     {activeTab === 'pos' && (
                         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden w-full relative">
+
+                            {/* 🚀 OVERLAY CHẶN KHI CHƯA MỞ CA LÀM VIỆC */}
+                            {!isShiftOpen && (
+                                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[70] flex flex-col items-center justify-center p-4">
+                                    <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-sm animate-in zoom-in-95 duration-300">
+                                        <span className="text-6xl mb-4">🔒</span>
+                                        <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-2">Chưa mở ca làm việc</h3>
+                                        <p className="text-slate-500 font-medium text-sm md:text-base mb-6 leading-relaxed">
+                                            Bạn không thể thêm món, sửa đơn hoặc thanh toán khi chưa xác nhận số tiền đầu ca.
+                                        </p>
+                                        <button
+                                            onClick={() => setActiveTab('summary')}
+                                            className="bg-emerald-600 text-white font-black px-6 py-4 rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all w-full uppercase tracking-wider text-sm md:text-base flex items-center justify-center gap-2"
+                                        >
+                                            <span>🔑</span> Tới trang Mở Ca Ngay
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Danh sách món ăn */}
                             <ProductBody
-                                products={products} 
+                                products={products}
                                 categories={categories}
                                 onAddToCart={addToCart}
                             />
-                            
+
                             {/* Giỏ hàng dạng Nắp trượt */}
                             <CartSidebar
                                 cart={cart}
@@ -142,7 +182,7 @@ export default function App() {
                         <AdminManagement
                             users={MOCK_USERS}
                             categories={categories}
-                            products={products} 
+                            products={products}
                             ordersHistory={ordersHistory}
                         />
                     )}
