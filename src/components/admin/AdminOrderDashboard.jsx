@@ -88,6 +88,9 @@ export default function AdminOrderDashboard() {
             if (res.status === 'success') {
                 toast.success("Cập nhật trạng thái đơn hàng thành công!");
                 setEditingAdminOrder(null);
+                setTimeout(() => {
+                    fetchOrders(res.data);
+                }, 2000);
                 fetchOrders(); 
             } else {
                 toast.error(res.message || "Cập nhật thất bại!");

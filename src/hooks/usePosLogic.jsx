@@ -305,6 +305,9 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success("Thanh toán thành công!", { id: 'pay_ok', duration: 2000 });
+                setTimeout(() => {
+                    fetchData(res.data);
+                }, 2000);
                 fetchData();
             }
         } catch (error) { toast.error("Lỗi thanh toán!", { id: 'pay_err', duration: 2000 }); }
