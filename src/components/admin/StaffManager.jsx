@@ -285,7 +285,7 @@ export default function StaffManager() {
 
                         <div className="flex gap-3 pt-5 border-t border-slate-100">
                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Hủy</button>
-                            <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-md">Lưu thôngợp</button>
+                            <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-md">Lưu</button>
                         </div>
                     </form>
                 </div>

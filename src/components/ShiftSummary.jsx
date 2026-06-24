@@ -20,6 +20,9 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
     const [isLoadingShift, setIsLoadingShift] = useState(true);
     const [isOpeningShift, setIsOpeningShift] = useState(false);
 
+    // STATE MỚI: Quản lý doanh thu 4 ngày gần nhất
+    const [dailyRevenues, setDailyRevenues] = useState([]);
+
     // =========================================================================
     // 1. HÀM KIỂM TRA TRẠNG THÁI CA LÀM VIỆC TỪ BACKEND
     // =========================================================================
@@ -27,11 +30,9 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         try {
             const res = await apiService.getCurrentShift();
             if (res && res.data) {
-                // TRƯỜNG HỢP 1: ĐANG CÓ CA MỞ -> Hiện số tiền đang có trong ca
                 setIsShiftOpen(true);
                 setInitialCash(res.data.initialCash.toString()); 
             } else {
-                // 🚀 TRƯỜNG HỢP 2: CHƯA MỞ CA -> Đi móc số tiền vật lý cũ từ két lên điền sẵn
                 setIsShiftOpen(false);
                 try {
                     const cashRes = await apiService.getLatestShiftCash();
@@ -56,24 +57,88 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         }
     }, [setInitialCash, setActualCash, setNote, setIsConfirming]);
 
+    // =========================================================================
+    // 2. HÀM LẤY VÀ TÍNH TOÁN DOANH THU 4 NGÀY QUA (RESET LÚC 3H SÁNG)
+    // =========================================================================
+    const fetchDailyRevenues = useCallback(async () => {
+        try {
+            const res = await apiService.getOrders();
+            const allOrders = res.data || res || [];
+
+            // Hàm tính "Ngày kinh doanh" (Mốc 3h sáng)
+            // Lùi thời gian lại 3 tiếng để ép khung giờ 00:00 -> 02:59 thuộc về ngày hôm trước
+            const getBusinessDateStr = (dateObj) => {
+                if (!dateObj) return null;
+                const d = new Date(dateObj);
+                d.setHours(d.getHours() - 3); 
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${dd}/${mm}/${yyyy}`;
+            };
+
+            // Tạo danh sách 4 "Ngày kinh doanh" gần nhất tính từ thời điểm hiện tại
+            const todayObj = new Date();
+            const businessDates = [];
+            for (let i = 0; i < 4; i++) {
+                const d = new Date(todayObj);
+                d.setDate(d.getDate() - i);
+                businessDates.push(getBusinessDateStr(d));
+            }
+
+            // Khởi tạo bộ đếm doanh thu
+            const revenueMap = {};
+            businessDates.forEach(date => revenueMap[date] = 0);
+
+            // Chỉ tính các đơn đã hoàn thành
+            const validStatuses = ['PAID', 'COMPLETED', 'HOÀN THÀNH'];
+            
+            allOrders.forEach(order => {
+                const status = String(order.status).toUpperCase();
+                if (validStatuses.includes(status)) {
+                    const bDate = getBusinessDateStr(order.createdAt || order.created_at);
+                    if (revenueMap[bDate] !== undefined) {
+                        const finalPrice = Math.max(0, (order.totalPrice || 0) - (order.discount || 0));
+                        revenueMap[bDate] += finalPrice;
+                    }
+                }
+            });
+
+            // Gán nhãn hiển thị cho đẹp
+            const result = businessDates.map((date, index) => ({
+                date: date,
+                label: index === 0 ? 'HÔM NAY' : index === 1 ? 'HÔM QUA' : `${index} NGÀY TRƯỚC`,
+                total: revenueMap[date]
+            }));
+
+            setDailyRevenues(result);
+        } catch (error) {
+            console.error("Lỗi tải doanh thu theo ngày:", error);
+        }
+    }, []);
+
     // Load lần đầu khi mở giao diện
     useEffect(() => {
         checkCurrentShift();
-    }, [checkCurrentShift]);
+        fetchDailyRevenues();
+    }, [checkCurrentShift, fetchDailyRevenues]);
 
     // =========================================================================
-    // 2. LẮNG NGHE WEBSOCKET TỪ BACKEND
+    // 3. LẮNG NGHE WEBSOCKET TỪ BACKEND ĐỂ CẬP NHẬT REALTIME
     // =========================================================================
     useWebSocket('/topic/public', (rawBody) => {
         const body = rawBody.replace(/"/g, ''); 
         if (body === 'SHIFT_OPENED' || body === 'SHIFT_CLOSED') {
-            console.log("🔔 Nhận tín hiệu thay đổi ca. Đang đồng bộ lại màn hình...");
             checkCurrentShift();
+        }
+        // Khi có đơn hàng mới hoặc đổi trạng thái thì cập nhật lại bảng doanh thu ngày
+        if (body === 'ORDER_CHANGED' || body === 'DATA_CHANGED' || body === 'SHIFT_CLOSED') {
+            fetchDailyRevenues();
         }
     });
 
     // =========================================================================
-    // 3. HÀM XỬ LÝ MỞ CA
+    // 4. HÀM XỬ LÝ MỞ CA
     // =========================================================================
     const handleOpenShift = async () => {
         if (initialCash === '' || initialCash < 0) {
@@ -119,10 +184,13 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
     return (
         <div className="flex-1 p-6 overflow-y-auto bg-slate-50">
             <div className="max-w-4xl mx-auto space-y-6">
+                
+                {/* TIÊU ĐỀ */}
                 <h2 className="text-xl font-bold text-slate-800">
                     {isShiftOpen ? 'Tổng Kết Ca & Đối Soát Doanh Thu' : 'Khai Báo Đầu Ca Làm Việc'}
                 </h2>
 
+                {/* DÃY CARD DOANH THU CỦA CA LÀM VIỆC HIỆN TẠI */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className={`p-5 rounded-2xl border border-slate-200 shadow-sm transition-colors ${isShiftOpen ? 'bg-white' : 'bg-slate-100 opacity-60'}`}>
                         <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Tổng Doanh Thu Ca</span>
@@ -146,6 +214,34 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                     </div>
                 </div>
 
+                {/* 🚀 THÊM MỚI: BẢNG DOANH THU 4 NGÀY CHO STAFF KẾT SỔ */}
+                <div className="bg-slate-800 rounded-2xl shadow-md p-5 border border-slate-700">
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="text-lg">📊</span>
+                        <div>
+                            <h3 className="font-black text-white text-sm uppercase tracking-wider">Lịch Sử Doanh Thu Theo Ngày</h3>
+                            <p className="text-[10px] text-slate-400 font-medium">Hệ thống tự động Reset ngày mới vào lúc 03:00 Sáng.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {dailyRevenues.map((item, idx) => (
+                            <div key={idx} className={`p-3 rounded-xl border ${idx === 0 ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-700/50 border-slate-600'}`}>
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className={`text-[10px] font-bold uppercase ${idx === 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                        {item.label}
+                                    </span>
+                                </div>
+                                <span className="text-base font-black text-white block">
+                                    {item.total.toLocaleString('vi-VN')} <span className="text-[10px] text-slate-400 font-normal">Đ</span>
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-medium mt-1 block">Ngày {item.date}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* KHU VỰC ĐỐI SOÁT KÉT TIỀN & BÀN GIAO CA */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 relative">
                     {!isShiftOpen && (
                         <div className="absolute top-4 right-6 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
