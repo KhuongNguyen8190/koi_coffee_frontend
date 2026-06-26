@@ -8,7 +8,7 @@ import ShiftSummary from './components/ShiftSummary';
 import Login from './components/Login';
 import AdminManagement from './components/admin/AdminManagement';
 
-import { usePOSLogic } from './hooks/usePOSLogic';
+import { usePOSLogic } from './hooks/usePosLogic';
 
 const MOCK_USERS = [
     { id: 1, username: 'admin', full_name: 'Quản Trị Viên Hệ Thống', role: 'ADMIN' },
