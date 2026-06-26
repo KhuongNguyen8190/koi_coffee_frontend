@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useShiftLogic } from '../hooks/useShiftLogic';
-import { apiService } from '../services/apiService'; 
-import { useWebSocket } from '../hooks/useWebSocket'; 
+import { apiService } from '../services/apiService';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
     const {
@@ -31,7 +31,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
             const res = await apiService.getCurrentShift();
             if (res && res.data) {
                 setIsShiftOpen(true);
-                setInitialCash(res.data.initialCash.toString()); 
+                setInitialCash(res.data.initialCash.toString());
             } else {
                 setIsShiftOpen(false);
                 try {
@@ -44,10 +44,10 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                 } catch (e) {
                     setInitialCash('');
                 }
-                
-                setActualCash(''); 
-                setNote('');       
-                setIsConfirming(false); 
+
+                setActualCash('');
+                setNote('');
+                setIsConfirming(false);
             }
         } catch (error) {
             setIsShiftOpen(false);
@@ -70,7 +70,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
             const getBusinessDateStr = (dateObj) => {
                 if (!dateObj) return null;
                 const d = new Date(dateObj);
-                d.setHours(d.getHours() - 3); 
+                d.setHours(d.getHours() - 3);
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
@@ -92,7 +92,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
 
             // Chỉ tính các đơn đã hoàn thành
             const validStatuses = ['PAID', 'COMPLETED', 'HOÀN THÀNH'];
-            
+
             allOrders.forEach(order => {
                 const status = String(order.status).toUpperCase();
                 if (validStatuses.includes(status)) {
@@ -127,7 +127,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
     // 3. LẮNG NGHE WEBSOCKET TỪ BACKEND ĐỂ CẬP NHẬT REALTIME
     // =========================================================================
     useWebSocket('/topic/public', (rawBody) => {
-        const body = rawBody.replace(/"/g, ''); 
+        const body = rawBody.replace(/"/g, '');
         if (body === 'SHIFT_OPENED' || body === 'SHIFT_CLOSED') {
             checkCurrentShift();
         }
@@ -144,15 +144,15 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         if (initialCash === '' || initialCash < 0) {
             return toast.error("Vui lòng nhập số tiền mặt đầu ca hợp lệ!");
         }
-        
+
         setIsOpeningShift(true);
         try {
-            const res = await apiService.openShift({ 
+            const res = await apiService.openShift({
                 initialCash: Number(initialCash),
                 staffName: currentUser?.fullName || currentUser?.username || 'Nhân viên'
             });
-            
-            if(res.status === 'success' || res) {
+
+            if (res.status === 'success' || res) {
                 setIsShiftOpen(true);
                 toast.success("Mở ca thành công! Bắt đầu bán hàng thôi.");
             }
@@ -172,6 +172,15 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         }
     };
 
+    const formatDisplay = (val) => {
+        if (!val) return '';
+        // Loại bỏ mọi ký tự không phải số
+        const cleanVal = String(val).replace(/\D/g, '');
+        if (cleanVal === '') return '';
+        // Định dạng lại với dấu phẩy
+        return Number(cleanVal).toLocaleString('vi-VN');
+    };
+
     if (isLoadingShift) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
@@ -184,7 +193,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
     return (
         <div className="flex-1 p-6 overflow-y-auto bg-slate-50">
             <div className="max-w-4xl mx-auto space-y-6">
-                
+
                 {/* TIÊU ĐỀ */}
                 <h2 className="text-xl font-bold text-slate-800">
                     {isShiftOpen ? 'Tổng Kết Ca & Đối Soát Doanh Thu' : 'Khai Báo Đầu Ca Làm Việc'}
@@ -223,7 +232,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                             <p className="text-[10px] text-slate-400 font-medium">Hệ thống tự động Reset ngày mới vào lúc 03:00 Sáng.</p>
                         </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {dailyRevenues.map((item, idx) => (
                             <div key={idx} className={`p-3 rounded-xl border ${idx === 0 ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-700/50 border-slate-600'}`}>
@@ -254,8 +263,8 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                             {isShiftOpen ? 'Kiểm Két Bàn Giao' : 'Tiền Mặt Ban Đầu'}
                         </h3>
                         <p className="text-sm text-slate-500 mt-1">
-                            {isShiftOpen 
-                                ? 'Đối chiếu số tiền mặt dự tính và số tiền thực tế có trong két để hoàn tất ca làm việc.' 
+                            {isShiftOpen
+                                ? 'Đối chiếu số tiền mặt dự tính và số tiền thực tế có trong két để hoàn tất ca làm việc.'
                                 : 'Nhập chính xác số tiền mặt hiện có trong két để lưu vào hệ thống làm mốc đối soát.'}
                         </p>
                     </div>
@@ -273,13 +282,15 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                                 type="number"
                                                 min="0"
                                                 value={initialCash}
-                                                onChange={(e) => setInitialCash(e.target.value)}
-                                                disabled={isShiftOpen} 
-                                                className={`w-full border p-3 pr-12 rounded-xl font-bold text-base transition-colors ${
-                                                    isShiftOpen 
-                                                    ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed' 
+                                                onChange={(e) => {
+                                                    const rawValue = e.target.value.replace(/\D/g, '');
+                                                    setInitialCash(rawValue);
+                                                }}
+                                                disabled={isShiftOpen}
+                                                className={`w-full border p-3 pr-12 rounded-xl font-bold text-base transition-colors ${isShiftOpen
+                                                    ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
                                                     : 'border-blue-300 bg-blue-50/30 focus:border-blue-500 focus:outline-none text-slate-800'
-                                                }`}
+                                                    }`}
                                             />
                                             <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                                                 <span className={`${isShiftOpen ? 'text-slate-400' : 'text-blue-600'} font-bold text-sm`}>VNĐ</span>
@@ -306,7 +317,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                     {!isShiftOpen && (
                                         <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-2xl flex items-center justify-center border border-dashed border-slate-200">
                                             <p className="text-slate-400 font-bold text-sm uppercase tracking-widest text-center px-4">
-                                                🔒 Xác nhận Mở Ca <br/> để mở khóa phần này
+                                                🔒 Xác nhận Mở Ca <br /> để mở khóa phần này
                                             </p>
                                         </div>
                                     )}
@@ -321,7 +332,10 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                                 min="0"
                                                 placeholder="Nhập tổng số tiền có trong két..."
                                                 value={actualCash}
-                                                onChange={(e) => setActualCash(e.target.value)}
+                                                onChange={(e) => {
+                                                    const rawValue = e.target.value.replace(/\D/g, '');
+                                                    setActualCash(rawValue);
+                                                }}
                                                 disabled={!isShiftOpen}
                                                 className="w-full border-2 border-emerald-200 bg-emerald-50/30 p-4 pr-12 rounded-xl focus:border-emerald-500 focus:outline-none font-black text-slate-800 text-lg transition-colors disabled:opacity-50"
                                             />
@@ -367,7 +381,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                         type="button"
                                         onClick={() => {
                                             if (!actualCash) return toast.error("Vui lòng nhập tiền mặt thực tế kiểm đếm!");
-                                            setClosingTime(new Date()); 
+                                            setClosingTime(new Date());
                                             setIsConfirming(true);
                                         }}
                                         className="bg-slate-800 text-white font-bold text-sm px-10 py-3.5 rounded-xl hover:bg-slate-700 transition-colors shadow-md"
@@ -381,7 +395,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                         <form onSubmit={onFinalSubmit} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 shadow-inner animate-in fade-in zoom-in-95 duration-200">
                             <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
                                 <h4 className="font-bold text-slate-800 text-lg">Phiếu Báo Cáo Két Tiền</h4>
-                                
+
                                 {closingTime && (
                                     <div className="text-right">
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thời gian chốt ca</p>

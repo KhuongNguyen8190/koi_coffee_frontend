@@ -59,10 +59,8 @@ export default function Login({ onLoginSuccess }) {
             const res = await apiService.login({ username, password });
 
             if (res && res.data) {
-                toast.success("Đăng nhập thành công!");
                 localStorage.setItem('user_session', JSON.stringify(res.data));
 
-                // Đảm bảo xóa sạch án phạt sau khi đăng nhập thành công
                 localStorage.removeItem('kickout_penalty_until');
                 setTimeout(() => {
                     onLoginSuccess(res.data);
