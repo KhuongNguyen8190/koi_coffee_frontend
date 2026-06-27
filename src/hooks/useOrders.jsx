@@ -53,7 +53,6 @@ export function useOrders(currentUser, cart, clearCart) {
             heartbeatIncoming: 4000, 
             heartbeatOutgoing: 4000,
             onConnect: () => {
-                console.log("🟢 [useOrders] Đã kết nối WebSocket!");
                 client.subscribe('/topic/public', (message) => {
                     if (message.body === 'SHIFT_CLOSED') {
                         toast('🔒 Một thiết bị khác vừa chốt ca. Giao diện đang được làm mới!', {

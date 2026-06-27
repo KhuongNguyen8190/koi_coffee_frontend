@@ -46,7 +46,6 @@ export default function ShiftConfig() {
         const body = message.replace(/"/g, ''); 
         // Đã bổ sung SHIFT_OPENED để bắt được sự kiện nhân viên bấm Mở Ca
         if (body === 'SHIFT_OPENED' || body === 'SHIFT_CLOSED' || body === 'DATA_CHANGED') {
-            console.log('🔔 Nhận tín hiệu từ thu ngân (Mở/Kết ca), đang tải lại danh sách Admin...');
             fetchShifts(); 
         }
     });

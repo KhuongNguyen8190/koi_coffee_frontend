@@ -38,7 +38,6 @@ export default function App() {
         const keepServerAwake = async () => {
             try {
                 await apiService.ping();
-                console.log("Pinged backend server successfully. Keeping it awake! 🟢");
             } catch (error) {
                 console.error("Failed to ping backend server. 🔴", error);
             }

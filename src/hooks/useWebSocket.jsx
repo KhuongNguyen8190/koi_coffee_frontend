@@ -18,7 +18,6 @@ export const useWebSocket = (topic, onMessageReceived) => {
             webSocketFactory: () => new SockJS(socketUrl),
             reconnectDelay: 5000,
             onConnect: () => {
-                console.log(`✅ [WebSocket] Đã kết nối STOMP tới ${socketUrl}`);
                 stompClient.subscribe(topic, (message) => {
                     if (callbackRef.current) {
                         callbackRef.current(message.body);

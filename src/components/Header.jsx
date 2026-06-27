@@ -54,7 +54,6 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
 
     useWebSocket('/topic/public', (message) => {
         if (message === 'DATA_CHANGED') {
-            console.log('🔔 Có dữ liệu mới! Đang tải lại thông báo...');
             setHideBellDot(false); // Hiện lại chấm đỏ trên chuông khi có tin mới
             fetchNotifications();
         }
