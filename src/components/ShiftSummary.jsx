@@ -65,8 +65,6 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
             const res = await apiService.getOrders();
             const allOrders = res.data || res || [];
 
-            // Hàm tính "Ngày kinh doanh" (Mốc 3h sáng)
-            // Lùi thời gian lại 3 tiếng để ép khung giờ 00:00 -> 02:59 thuộc về ngày hôm trước
             const getBusinessDateStr = (dateObj) => {
                 if (!dateObj) return null;
                 const d = new Date(dateObj);
@@ -77,7 +75,6 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                 return `${dd}/${mm}/${yyyy}`;
             };
 
-            // Tạo danh sách 4 "Ngày kinh doanh" gần nhất tính từ thời điểm hiện tại
             const todayObj = new Date();
             const businessDates = [];
             for (let i = 0; i < 4; i++) {
@@ -86,11 +83,9 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                 businessDates.push(getBusinessDateStr(d));
             }
 
-            // Khởi tạo bộ đếm doanh thu
             const revenueMap = {};
             businessDates.forEach(date => revenueMap[date] = 0);
 
-            // Chỉ tính các đơn đã hoàn thành
             const validStatuses = ['PAID', 'COMPLETED', 'HOÀN THÀNH'];
 
             allOrders.forEach(order => {
@@ -104,7 +99,6 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                 }
             });
 
-            // Gán nhãn hiển thị cho đẹp
             const result = businessDates.map((date, index) => ({
                 date: date,
                 label: index === 0 ? 'HÔM NAY' : index === 1 ? 'HÔM QUA' : `${index} NGÀY TRƯỚC`,
@@ -131,7 +125,6 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         if (body === 'SHIFT_OPENED' || body === 'SHIFT_CLOSED') {
             checkCurrentShift();
         }
-        // Khi có đơn hàng mới hoặc đổi trạng thái thì cập nhật lại bảng doanh thu ngày
         if (body === 'ORDER_CHANGED' || body === 'DATA_CHANGED' || body === 'SHIFT_CLOSED') {
             fetchDailyRevenues();
         }
@@ -172,13 +165,16 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
         }
     };
 
-    const formatDisplay = (val) => {
-        if (!val) return '';
-        // Loại bỏ mọi ký tự không phải số
-        const cleanVal = String(val).replace(/\D/g, '');
-        if (cleanVal === '') return '';
-        // Định dạng lại với dấu phẩy
-        return Number(cleanVal).toLocaleString('vi-VN');
+    // Hàm xử lý nhập Tiền đầu ca
+    const handleInitialCashChange = (e) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        setInitialCash(rawValue ? Number(rawValue).toString() : '');
+    };
+
+    // Hàm xử lý nhập Tiền thực đếm cuối ca
+    const handleActualCashChange = (e) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        setActualCash(rawValue ? Number(rawValue).toString() : '');
     };
 
     if (isLoadingShift) {
@@ -223,7 +219,7 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                     </div>
                 </div>
 
-                {/* 🚀 THÊM MỚI: BẢNG DOANH THU 4 NGÀY CHO STAFF KẾT SỔ */}
+                {/* BẢNG DOANH THU 4 NGÀY CHO STAFF KẾT SỔ */}
                 <div className="bg-slate-800 rounded-2xl shadow-md p-5 border border-slate-700">
                     <div className="flex items-center gap-2 mb-4">
                         <span className="text-lg">📊</span>
@@ -279,17 +275,14 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                         </label>
                                         <div className="relative rounded-lg shadow-sm">
                                             <input
-                                                type="number"
-                                                min="0"
-                                                value={initialCash}
-                                                onChange={(e) => {
-                                                    const rawValue = e.target.value.replace(/\D/g, '');
-                                                    setInitialCash(rawValue);
-                                                }}
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={initialCash ? Number(initialCash).toLocaleString('en-US') : ''}
+                                                onChange={handleInitialCashChange}
                                                 disabled={isShiftOpen}
                                                 className={`w-full border p-3 pr-12 rounded-xl font-bold text-base transition-colors ${isShiftOpen
-                                                    ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
-                                                    : 'border-blue-300 bg-blue-50/30 focus:border-blue-500 focus:outline-none text-slate-800'
+                                                        ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
+                                                        : 'border-blue-300 bg-blue-50/30 focus:border-blue-500 focus:outline-none text-slate-800'
                                                     }`}
                                             />
                                             <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -328,14 +321,11 @@ export default function ShiftSummary({ orders = [], onEndShift, currentUser }) {
                                         </label>
                                         <div className="relative rounded-lg shadow-sm">
                                             <input
-                                                type="number"
-                                                min="0"
+                                                type="text"
+                                                inputMode="numeric"
                                                 placeholder="Nhập tổng số tiền có trong két..."
-                                                value={actualCash}
-                                                onChange={(e) => {
-                                                    const rawValue = e.target.value.replace(/\D/g, '');
-                                                    setActualCash(rawValue);
-                                                }}
+                                                value={actualCash ? Number(actualCash).toLocaleString('en-US') : ''}
+                                                onChange={handleActualCashChange}
                                                 disabled={!isShiftOpen}
                                                 className="w-full border-2 border-emerald-200 bg-emerald-50/30 p-4 pr-12 rounded-xl focus:border-emerald-500 focus:outline-none font-black text-slate-800 text-lg transition-colors disabled:opacity-50"
                                             />

@@ -49,6 +49,24 @@ export default function CartSidebar({
         setDiscountValue('');
     };
 
+    // Hàm xử lý nhập Chiết khấu: Ngăn nhập chữ, chặn số 0 ở đầu và xử lý %
+    const handleDiscountChange = (e) => {
+        const rawValue = e.target.value.replace(/\D/g, ''); // Xóa toàn bộ ký tự không phải số
+        if (rawValue === '') {
+            setDiscountValue('');
+            return;
+        }
+
+        const numValue = Number(rawValue); // Chuyển thành số để mất số 0 ở đầu (0100 -> 100)
+        
+        if (discountType === 'PERCENT') {
+            // Nếu là phần trăm, không cho nhập quá 100
+            setDiscountValue((numValue > 100 ? 100 : numValue).toString());
+        } else {
+            setDiscountValue(numValue.toString());
+        }
+    };
+
     return (
         <>
             {/* NÚT MỞ GIỎ HÀNG NỔI */}
@@ -69,7 +87,7 @@ export default function CartSidebar({
                 </button>
             </div>
 
-            {/* LỚP MỜ (BACKDROP) - Đã nâng lên z-[90] */}
+            {/* LỚP MỜ (BACKDROP) */}
             {isCartOpen && (
                 <div 
                     className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[90] transition-opacity duration-300"
@@ -77,7 +95,7 @@ export default function CartSidebar({
                 />
             )}
 
-            {/* BẢNG GIỎ HÀNG TRƯỢT - Đã nâng lên z-[100] và dùng h-[100dvh] */}
+            {/* BẢNG GIỎ HÀNG TRƯỢT */}
             <div className={`fixed top-0 right-0 h-[100dvh] w-full sm:w-[400px] bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.15)] z-[100] transform transition-transform duration-300 ease-out flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 
                 {/* HEADER GIỎ HÀNG */}
@@ -163,17 +181,21 @@ export default function CartSidebar({
                         <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Chiết khấu / Giảm giá</label>
                         <div className="flex bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500">
                             <button 
-                                onClick={() => setDiscountType(prev => prev === 'AMOUNT' ? 'PERCENT' : 'AMOUNT')}
+                                onClick={() => {
+                                    setDiscountType(prev => prev === 'AMOUNT' ? 'PERCENT' : 'AMOUNT');
+                                    setDiscountValue('');
+                                }}
                                 className="bg-slate-100 px-2 md:px-3 py-2 text-xs md:text-sm font-black text-slate-700 hover:bg-slate-200 transition-colors border-r border-slate-200 w-12 md:w-14 text-center shrink-0"
                             >
                                 {discountType === 'AMOUNT' ? 'VNĐ' : '%'}
                             </button>
                             <input 
-                                type="number"
-                                min="0"
+                                type="text"
+                                inputMode="numeric" // Gọi bàn phím số trên điện thoại
                                 placeholder={discountType === 'AMOUNT' ? 'Nhập số tiền...' : 'Nhập %...'}
-                                value={discountValue}
-                                onChange={(e) => setDiscountValue(e.target.value)}
+                                // Định dạng thêm dấu phẩy nếu là dạng tiền tệ
+                                value={discountType === 'AMOUNT' && discountValue ? Number(discountValue).toLocaleString('en-US') : discountValue}
+                                onChange={handleDiscountChange}
                                 className="flex-1 px-3 py-2 text-xs md:text-sm font-bold text-slate-800 outline-none w-full bg-transparent"
                             />
                             {discountValue && (
