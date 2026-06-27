@@ -3,8 +3,8 @@ import { toast } from 'react-hot-toast';
 
 const BANK_CONFIG = {
     BANK_ID: "MB",
-    ACCOUNT_NO: "123456789",
-    ACCOUNT_NAME: "KOI COFFEE SHOP"
+    ACCOUNT_NO: "9704229201697779848",
+    ACCOUNT_NAME: "Nguyen Duy Khuong"
 };
 
 export default function OrdersHistory({ 
