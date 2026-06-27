@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import ProductBody from './components/ProductBody';
@@ -9,6 +9,7 @@ import Login from './components/Login';
 import AdminManagement from './components/admin/AdminManagement';
 
 import { usePOSLogic } from './hooks/usePosLogic';
+import { apiService } from './services/apiService'; // Lưu ý: Điều chỉnh lại đường dẫn import này cho khớp với thư mục của bạn
 
 const MOCK_USERS = [
     { id: 1, username: 'admin', full_name: 'Quản Trị Viên Hệ Thống', role: 'ADMIN' },
@@ -31,6 +32,30 @@ export default function App() {
         handleChangePaymentMethod,
         handleChangeOrderStatus
     } = usePOSLogic();
+
+    // 🚀 LÊN LỊCH PING ĐỂ GIỮ SERVER RENDER.IO KHÔNG BỊ NGỦ ĐÔNG
+    useEffect(() => {
+        const keepServerAwake = async () => {
+            try {
+                await apiService.ping();
+                console.log("Pinged backend server successfully. Keeping it awake! 🟢");
+            } catch (error) {
+                console.error("Failed to ping backend server. 🔴", error);
+            }
+        };
+
+        // Render.io sleep sau 15 phút. Set ping mỗi 10 phút (600,000 ms)
+        const PING_INTERVAL = 600000;
+
+        // Khởi tạo interval đếm lùi
+        const intervalId = setInterval(keepServerAwake, PING_INTERVAL);
+
+        // Gọi luôn 1 lần đầu tiên khi app vừa được mở lên
+        keepServerAwake();
+
+        // Dọn dẹp interval khi đóng ứng dụng
+        return () => clearInterval(intervalId);
+    }, []);
 
     const currentShiftOrders = useMemo(() => {
         const lastTimestamp = lastShiftEnd ? new Date(lastShiftEnd).getTime() : 0;

@@ -18,6 +18,9 @@ export const apiService = {
         }
     },
 
+    // API HỆ THỐNG: Giữ cho backend render.io không bị ngủ đông
+    ping: () => axios.get(`${API_URL}/system/ping`).then(handleResponse),
+
     getMenu: () => axios.get(`${API_URL}/menu`).then(handleResponse),
     getProducts: () => axios.get(`${API_URL}/products`).then(handleResponse),
     getOrders: () => axios.get(`${API_URL}/orders`).then(handleResponse),
@@ -30,7 +33,7 @@ export const apiService = {
     changeOrderStatus: (id, status) => axios.put(`${API_URL}/orders/${id}/status?status=${status}`, {}).then(handleResponse),
     changePaymentMethod: (id, method) => axios.put(`${API_URL}/orders/${id}/payment-method?method=${method}`, {}).then(handleResponse),
     cancelOrder: (id) => axios.put(`${API_URL}/orders/${id}/cancel`, {}).then(handleResponse),
-    restoreOrder: (id) => axios.put(`${API_URL}/orders/${id}/restore`, {}).then(handleResponse), // <-- Thêm hàm này
+    restoreOrder: (id) => axios.put(`${API_URL}/orders/${id}/restore`, {}).then(handleResponse),
 
     getCurrentShift: () => axios.get(`${API_URL}/shifts/current`).then(handleResponse),
     openShift: (payload) => axios.post(`${API_URL}/shifts/open`, payload).then(handleResponse),
