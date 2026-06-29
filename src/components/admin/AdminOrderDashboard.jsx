@@ -39,6 +39,12 @@ export default function AdminOrderDashboard() {
     const [endDate, setEndDate] = useState(`${yyyy}-${mm}-${dd}`);
 
     // =========================================================================
+    // STATE PHÂN TRANG (PAGINATION)
+    // =========================================================================
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10); // Mặc định 10 đơn, có thể đổi thành 'ALL'
+
+    // =========================================================================
     // FETCH DỮ LIỆU CHÍNH
     // =========================================================================
     const fetchOrders = useCallback(async () => {
@@ -61,7 +67,7 @@ export default function AdminOrderDashboard() {
         fetchOrders();
     }, [fetchOrders]);
 
-    // 🚀 CHỈ 1 ĐOẠN NGẮN GỌN ĐỂ NHẬN WEBSOCKET TỪ FILE CHUNG
+    // WebSocket Lắng nghe thay đổi
     useWebSocket('/topic/public', (messageBody) => {
         if (messageBody === 'DATA_CHANGED' || messageBody === 'ORDER_CHANGED' || messageBody === 'SHIFT_CLOSED') {
             fetchOrders();
@@ -82,15 +88,12 @@ export default function AdminOrderDashboard() {
 
     const handleSaveEdit = async (e) => {
         e.preventDefault();
-        
-        // 🚀 BƯỚC QUAN TRỌNG: Xóa sạch toast cũ trước khi xử lý để chống treo trên điện thoại
         toast.dismiss(); 
         
         setIsSaving(true);
         try {
             const res = await apiService.updateAdminOrder(editingAdminOrder.id, editFormData);
             if (res.status === 'success') {
-                // 🚀 GẮN THÊM ID ĐỂ TOAST TỰ GHI ĐÈ
                 toast.success("Cập nhật trạng thái thành công!", { id: 'update_status_ok', duration: 2000 });
                 setEditingAdminOrder(null);
                 fetchOrders(); 
@@ -105,7 +108,7 @@ export default function AdminOrderDashboard() {
     };
 
     // =========================================================================
-    // LỌC VÀ THỐNG KÊ DOANH THU
+    // LỌC VÀ THỐNG KÊ DOANH THU (Chỉ chạy khi dữ liệu thay đổi, không chạy lại khi đổi trang)
     // =========================================================================
     const { filteredOrders, metrics } = useMemo(() => {
         let result = orders;
@@ -147,7 +150,6 @@ export default function AdminOrderDashboard() {
         const pendingOrders = result.filter(o => pendingStatuses.includes(String(o.status).toUpperCase()));
         const cancelledOrders = result.filter(o => cancelledStatuses.includes(String(o.status).toUpperCase()));
         
-        // Hàm tính tiền thu thực tế (đã trừ chiết khấu)
         const getFinalPrice = (o) => Math.max(0, (o.totalPrice || 0) - (o.discount || 0));
 
         const totalRevenue = completedOrders.reduce((sum, o) => sum + getFinalPrice(o), 0);
@@ -168,6 +170,22 @@ export default function AdminOrderDashboard() {
             } 
         };
     }, [orders, searchTerm, filterType, dateValue, monthValue, yearValue, startDate, endDate]);
+
+    // Tự động Reset về Trang 1 nếu thay đổi bộ lọc tìm kiếm
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterType, dateValue, monthValue, yearValue, startDate, endDate, itemsPerPage]);
+
+    // =========================================================================
+    // XỬ LÝ DỮ LIỆU PHÂN TRANG (Cắt mảng dựa trên Current Page)
+    // =========================================================================
+    const totalPages = itemsPerPage === 'ALL' ? 1 : Math.ceil(filteredOrders.length / itemsPerPage);
+    
+    const paginatedOrders = useMemo(() => {
+        if (itemsPerPage === 'ALL') return filteredOrders;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredOrders, currentPage, itemsPerPage]);
 
     // =========================================================================
     // TIỆN ÍCH HIỂN THỊ
@@ -304,10 +322,10 @@ export default function AdminOrderDashboard() {
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                             {isLoading ? (
                                 <tr><td colSpan="9" className="text-center py-10 text-slate-400 font-bold">Đang tải dữ liệu...</td></tr>
-                            ) : filteredOrders.length === 0 ? (
+                            ) : paginatedOrders.length === 0 ? (
                                 <tr><td colSpan="9" className="text-center py-10 text-slate-400 font-bold italic">Không tìm thấy đơn hàng nào!</td></tr>
                             ) : (
-                                filteredOrders.map(order => {
+                                paginatedOrders.map(order => {
                                     const stt = getStatusStyle(order.status);
                                     const finalPrice = Math.max(0, (order.totalPrice || 0) - (order.discount || 0));
                                     
@@ -357,6 +375,48 @@ export default function AdminOrderDashboard() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* --- THANH ĐIỀU HƯỚNG PHÂN TRANG --- */}
+                {filteredOrders.length > 0 && (
+                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-4 items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                            <span>Hiển thị:</span>
+                            <select 
+                                value={itemsPerPage} 
+                                onChange={(e) => setItemsPerPage(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                                className="border border-slate-200 bg-white p-1.5 rounded-lg outline-none focus:border-[#00a67d] text-slate-700 cursor-pointer"
+                            >
+                                <option value={10}>10 đơn/trang</option>
+                                <option value={20}>20 đơn/trang</option>
+                                <option value={50}>50 đơn/trang</option>
+                                <option value="ALL">Tất cả đơn</option>
+                            </select>
+                            <span className="hidden sm:inline">/ Tổng số {filteredOrders.length} đơn</span>
+                        </div>
+
+                        {itemsPerPage !== 'ALL' && totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Trước
+                                </button>
+                                <span className="px-4 py-1.5 text-sm font-black text-slate-700 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    Trang {currentPage} / {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* 4. MODAL CHI TIẾT ĐƠN HÀNG */}
