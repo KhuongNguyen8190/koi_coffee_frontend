@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../../services/apiService';
 import { useWebSocket } from '../../hooks/useWebSocket'; 
@@ -6,6 +6,12 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 export default function ShiftConfig() {
     const [shifts, setShifts] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // =====================================
+    // STATE PHÂN TRANG (PAGINATION)
+    // =====================================
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // =====================================
     // STATE MODAL (VIEW HOẶC EDIT)
@@ -29,7 +35,15 @@ export default function ShiftConfig() {
         setIsLoading(true);
         try {
             const res = await apiService.getShifts(`?t=${new Date().getTime()}`);
-            if (res && res.status === 'success') setShifts(res.data || []);
+            if (res && res.status === 'success') {
+                // Sắp xếp ca mới nhất lên đầu (Dựa vào startTime)
+                const sortedShifts = (res.data || []).sort((a, b) => {
+                    const timeA = new Date(a.startTime || a.start_time || 0).getTime();
+                    const timeB = new Date(b.startTime || b.start_time || 0).getTime();
+                    return timeB - timeA;
+                });
+                setShifts(sortedShifts);
+            }
         } catch (error) { console.error("Lỗi tải ca", error); } 
         finally { setIsLoading(false); }
     }, []);
@@ -39,16 +53,31 @@ export default function ShiftConfig() {
         fetchShifts(); 
     }, [fetchShifts]);
 
+    // Tự động Reset về Trang 1 nếu thay đổi số lượng hiển thị
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [itemsPerPage]);
+
     // ====================================================================
-    // 🚀 ĐÃ SỬA LỖI Ở ĐÂY: Thêm 'SHIFT_OPENED' vào điều kiện lắng nghe
+    // LẮNG NGHE WEBSOCKET
     // ====================================================================
     useWebSocket('/topic/public', (message) => {
         const body = message.replace(/"/g, ''); 
-        // Đã bổ sung SHIFT_OPENED để bắt được sự kiện nhân viên bấm Mở Ca
         if (body === 'SHIFT_OPENED' || body === 'SHIFT_CLOSED' || body === 'DATA_CHANGED') {
             fetchShifts(); 
         }
     });
+
+    // =========================================================================
+    // XỬ LÝ DỮ LIỆU PHÂN TRANG
+    // =========================================================================
+    const totalPages = itemsPerPage === 'ALL' ? 1 : Math.ceil(shifts.length / itemsPerPage);
+    
+    const paginatedShifts = useMemo(() => {
+        if (itemsPerPage === 'ALL') return shifts;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return shifts.slice(startIndex, startIndex + itemsPerPage);
+    }, [shifts, currentPage, itemsPerPage]);
 
     // Mở Modal Xem Chi Tiết
     const openViewModal = (shift) => {
@@ -147,7 +176,7 @@ export default function ShiftConfig() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto min-h-[300px]">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-black border-b border-slate-100">
                             <tr>
@@ -163,10 +192,10 @@ export default function ShiftConfig() {
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                             {isLoading ? (
                                 <tr><td colSpan="7" className="text-center py-10 text-slate-400 font-bold">Đang tải dữ liệu...</td></tr>
-                            ) : shifts.length === 0 ? (
+                            ) : paginatedShifts.length === 0 ? (
                                 <tr><td colSpan="7" className="text-center py-10 text-slate-400 font-bold italic">Chưa có dữ liệu chốt ca!</td></tr>
                             ) : (
-                                shifts.map((s) => {
+                                paginatedShifts.map((s) => {
                                     const isNeg = s.variance < 0;
                                     return (
                                         <tr key={s.id} className="hover:bg-slate-50 transition-colors">
@@ -193,17 +222,59 @@ export default function ShiftConfig() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* --- THANH ĐIỀU HƯỚNG PHÂN TRANG --- */}
+                {shifts.length > 0 && (
+                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-4 items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                            <span>Hiển thị:</span>
+                            <select 
+                                value={itemsPerPage} 
+                                onChange={(e) => setItemsPerPage(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                                className="border border-slate-200 bg-white p-1.5 rounded-lg outline-none focus:border-blue-500 text-slate-700 cursor-pointer"
+                            >
+                                <option value={10}>10 dòng/trang</option>
+                                <option value={20}>20 dòng/trang</option>
+                                <option value={50}>50 dòng/trang</option>
+                                <option value="ALL">Tất cả</option>
+                            </select>
+                            <span className="hidden sm:inline">/ Tổng số {shifts.length} bản ghi</span>
+                        </div>
+
+                        {itemsPerPage !== 'ALL' && totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Trước
+                                </button>
+                                <span className="px-4 py-1.5 text-sm font-black text-slate-700 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    Trang {currentPage} / {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* ========================================================= */}
-            {/* MODAL: XEM CHI TIẾT CA LÀM VIỆC                           */}
+            {/* MODAL: XEM CHI TIẾT CA LÀM VIỆC                             */}
             {/* ========================================================= */}
             {modalMode === 'view' && editingShift && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                             <h3 className="text-lg font-black text-slate-800">Chi Tiết Báo Cáo Ca</h3>
-                            <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-black tracking-wider">
+                            <span className={`px-2.5 py-1 rounded text-[10px] font-black tracking-wider ${editingShift.status === 'OPEN' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                 {editingShift.status === 'OPEN' ? 'ĐANG TRỰC' : 'ĐÃ CHỐT'}
                             </span>
                         </div>
@@ -282,26 +353,26 @@ export default function ShiftConfig() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nhân viên trực ca *</label>
-                                    <input type="text" value={formData.staffName} onChange={e => setFormData({...formData, staffName: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-sm" required />
+                                    <input type="text" value={formData.staffName} onChange={e => setFormData({...formData, staffName: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-sm" required />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Giờ mở ca</label>
-                                    <input type="datetime-local" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-sm" />
+                                    <input type="datetime-local" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-sm" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Giờ kết ca *</label>
-                                    <input type="datetime-local" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-sm" required />
+                                    <input type="datetime-local" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-sm" required />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-3 gap-4 pt-3">
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Tiền đầu ca</label>
-                                    <input type="number" value={formData.initialCash} onChange={e => setFormData({...formData, initialCash: Number(e.target.value)})} className="w-full border border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-sm" />
+                                    <input type="number" value={formData.initialCash} onChange={e => setFormData({...formData, initialCash: Number(e.target.value)})} className="w-full border border-slate-200 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-sm" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Doanh thu Tiền mặt</label>
-                                    <input type="number" value={formData.batchCashRevenue} onChange={e => setFormData({...formData, batchCashRevenue: Number(e.target.value)})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-emerald-500 outline-none font-bold text-sm" />
+                                    <input type="number" value={formData.batchCashRevenue} onChange={e => setFormData({...formData, batchCashRevenue: Number(e.target.value)})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-blue-500 outline-none font-bold text-sm" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Doanh thu C.Khoản</label>
@@ -332,13 +403,13 @@ export default function ShiftConfig() {
 
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Ghi chú (Tùy chọn)</label>
-                                <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-emerald-500 outline-none font-medium text-sm h-16 resize-none" placeholder="Lý do chỉnh sửa..." />
+                                <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full border border-slate-200 bg-slate-50 p-3 rounded-xl focus:border-blue-500 outline-none font-medium text-sm h-16 resize-none" placeholder="Lý do chỉnh sửa..." />
                             </div>
                         </div>
 
                         <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
                             <button type="button" onClick={() => setModalMode(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-slate-200 hover:bg-slate-300 transition-colors">Hủy bỏ</button>
-                            <button type="submit" className="px-5 py-2.5 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-colors">Lưu thay đổi</button>
+                            <button type="submit" className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors">Lưu thay đổi</button>
                         </div>
                     </form>
                 </div>

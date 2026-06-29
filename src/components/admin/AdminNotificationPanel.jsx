@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../../services/apiService';
 
@@ -7,14 +7,22 @@ export default function AdminNotificationPanel() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [notifications, setNotifications] = useState([]);
     
-    // 🚀 ĐÃ SỬA: Quản lý theo ID để sửa/xóa chính xác dòng đang click
+    // Quản lý theo ID để sửa/xóa chính xác dòng đang click
     const [editingId, setEditingId] = useState(null);
     const [editInput, setEditInput] = useState('');
+
+    // =========================================================================
+    // STATE PHÂN TRANG (PAGINATION)
+    // =========================================================================
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10); // Mặc định 10 dòng/trang
 
     const fetchNotifications = async () => {
         try {
             const res = await apiService.getAdminNotifications();
-            setNotifications(res.data || []);
+            // Sắp xếp thông báo mới nhất lên đầu
+            const sortedNotifs = (res.data || []).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            setNotifications(sortedNotifs);
         } catch (error) {
             console.error("Lỗi lấy danh sách thông báo:", error);
         }
@@ -23,6 +31,22 @@ export default function AdminNotificationPanel() {
     useEffect(() => {
         fetchNotifications();
     }, []);
+
+    // Tự động Reset về Trang 1 nếu thay đổi số lượng hiển thị
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [itemsPerPage]);
+
+    // =========================================================================
+    // XỬ LÝ DỮ LIỆU PHÂN TRANG
+    // =========================================================================
+    const totalPages = itemsPerPage === 'ALL' ? 1 : Math.ceil(notifications.length / itemsPerPage);
+    
+    const paginatedNotifications = useMemo(() => {
+        if (itemsPerPage === 'ALL') return notifications;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return notifications.slice(startIndex, startIndex + itemsPerPage);
+    }, [notifications, currentPage, itemsPerPage]);
 
     // 1. Gửi thông báo mới
     const handleSendNotification = async (e) => {
@@ -36,6 +60,7 @@ export default function AdminNotificationPanel() {
                 toast.success("Đã phát thông báo!");
                 setMessage('');
                 fetchNotifications();
+                setCurrentPage(1); // Phát xong thì về trang 1 xem cho rõ
             } else {
                 toast.error(res.message || "Không thể gửi thông báo!");
             }
@@ -64,7 +89,7 @@ export default function AdminNotificationPanel() {
         }
     };
 
-    // 3. Thu hồi (Chỉ thu hồi thông báo và các bản sao của chính đợt đó)
+    // 3. Thu hồi
     const handleRecall = (id) => {
         toast((t) => (
             <div className="flex flex-col gap-3 min-w-[280px] animate-in zoom-in-95 duration-200">
@@ -143,23 +168,23 @@ export default function AdminNotificationPanel() {
                     </h3>
                 </div>
                 
-                <div className="overflow-x-auto max-h-[600px]">
+                <div className="overflow-x-auto min-h-[300px]">
                     <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-white shadow-sm z-10">
-                            <tr className="text-slate-400 text-xs uppercase tracking-wider font-bold">
-                                <th className="p-4 border-b border-slate-100 w-24">ID</th>
-                                <th className="p-4 border-b border-slate-100 w-40">Thời gian tạo</th>
-                                <th className="p-4 border-b border-slate-100">Nội dung thông báo</th>
-                                <th className="p-4 border-b border-slate-100 text-right w-48">Thao tác</th>
+                        <thead className="bg-white shadow-sm z-10">
+                            <tr className="text-slate-400 text-xs uppercase tracking-wider font-bold border-b border-slate-100">
+                                <th className="p-4 w-24">ID</th>
+                                <th className="p-4 w-40">Thời gian tạo</th>
+                                <th className="p-4">Nội dung thông báo</th>
+                                <th className="p-4 text-right w-48">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {notifications.length === 0 && (
+                            {paginatedNotifications.length === 0 && (
                                 <tr>
                                     <td colSpan="4" className="p-8 text-center text-slate-400 font-bold">Chưa có thông báo nào.</td>
                                 </tr>
                             )}
-                            {notifications.map(n => (
+                            {paginatedNotifications.map(n => (
                                 <tr key={n.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="p-4 text-xs font-black text-slate-400">#{n.id}</td>
                                     <td className="p-4 text-xs font-bold text-slate-500">
@@ -221,6 +246,48 @@ export default function AdminNotificationPanel() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* --- THANH ĐIỀU HƯỚNG PHÂN TRANG --- */}
+                {notifications.length > 0 && (
+                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-4 items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                            <span>Hiển thị:</span>
+                            <select 
+                                value={itemsPerPage} 
+                                onChange={(e) => setItemsPerPage(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                                className="border border-slate-200 bg-white p-1.5 rounded-lg outline-none focus:border-sky-500 text-slate-700 cursor-pointer"
+                            >
+                                <option value={10}>10 dòng/trang</option>
+                                <option value={20}>20 dòng/trang</option>
+                                <option value={50}>50 dòng/trang</option>
+                                <option value="ALL">Tất cả</option>
+                            </select>
+                            <span className="hidden sm:inline">/ Tổng số {notifications.length} bản ghi</span>
+                        </div>
+
+                        {itemsPerPage !== 'ALL' && totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Trước
+                                </button>
+                                <span className="px-4 py-1.5 text-sm font-black text-slate-700 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    Trang {currentPage} / {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
