@@ -24,6 +24,12 @@ export default function OrdersHistory({
         isOpen: false, amount: 0, description: "", onConfirm: null
     });
 
+    // =========================================================================
+    // STATE PHÂN TRANG (PAGINATION)
+    // =========================================================================
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 12; // Cố định 12 đơn mỗi trang
+
     useEffect(() => {
         if (selectedOrder) {
             const updatedOrder = orders.find(o => o.id === selectedOrder.id);
@@ -42,6 +48,11 @@ export default function OrdersHistory({
         return () => window.removeEventListener('click', handleClickOutside);
     }, []);
 
+    // Tự động Reset về Trang 1 khi thay đổi bất kỳ bộ lọc nào
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus, filterShift, filterDateRange]);
+
     const processedOrders = useMemo(() => {
         let result = [...orders];
         const lastShiftEndTimestamp = lastShiftEnd ? new Date(lastShiftEnd).getTime() : 0;
@@ -57,7 +68,6 @@ export default function OrdersHistory({
         }
 
         result = result.filter(order => {
-            // 🚀 BƯỚC 1: ĐỊNH NGHĨA CHUẨN ĐƠN "CA HIỆN TẠI"
             // Đơn thuộc ca hiện tại nếu: Chưa từng chốt ca HOẶC đang chờ thanh toán HOẶC tạo ở ca này HOẶC thanh toán ở ca này.
             const isCurrentShiftOrder = 
                 lastShiftEndTimestamp === 0 || 
@@ -65,10 +75,9 @@ export default function OrdersHistory({
                 new Date(order.createdAt).getTime() > lastShiftEndTimestamp || 
                 (order.paymentTime && new Date(order.paymentTime).getTime() > lastShiftEndTimestamp);
 
-            // 🚀 BƯỚC 2: PHÂN LOẠI LOẠI TRỪ TUYỆT ĐỐI
             if (filterShift === 'CURRENT') {
                 return isCurrentShiftOrder;
-            } else { // Ca trước đó
+            } else { 
                 const createdTime = new Date(order.createdAt).getTime();
                 const isAfterSelectedDate = createdTime >= startTimestamp;
                 
@@ -87,6 +96,16 @@ export default function OrdersHistory({
 
         return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }, [orders, filterShift, filterStatus, searchTerm, lastShiftEnd, filterDateRange]);
+
+    // =========================================================================
+    // XỬ LÝ DỮ LIỆU PHÂN TRANG
+    // =========================================================================
+    const totalPages = Math.ceil(processedOrders.length / ITEMS_PER_PAGE) || 1;
+    
+    const paginatedOrders = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return processedOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [processedOrders, currentPage]);
 
     const handleSelectOrder = (order) => {
         setSelectedOrder(order);
@@ -198,7 +217,6 @@ export default function OrdersHistory({
         return `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact.png?amount=${qrModal.amount}&addInfo=${encodeURIComponent(qrModal.description)}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
     }, [qrModal.isOpen, qrModal.amount, qrModal.description]);
 
-    // Bất kỳ đơn nào xuất hiện ở Tab "PREVIOUS" đều bị khóa chức năng sửa (cho TẤT CẢ mọi người)
     const isLocked = filterShift === 'PREVIOUS';
 
     return (
@@ -262,7 +280,7 @@ export default function OrdersHistory({
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {processedOrders.map(order => {
+                        {paginatedOrders.map(order => {
                             const originalPrice = Number(order.totalPrice) || 0;
                             const orderDiscount = Number(order.discount) || 0;
                             const finalPrice = originalPrice - orderDiscount;
@@ -292,7 +310,6 @@ export default function OrdersHistory({
                                                 <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md uppercase tracking-wider">Đã xong</span>
                                             )}
 
-                                            {/* NẾU ĐƠN BỊ KHÓA, ẨN LUÔN NÚT 3 CHẤM */}
                                             {!isLocked && (
                                                 <div className="relative">
                                                     <button 
@@ -397,6 +414,37 @@ export default function OrdersHistory({
                 )}
             </div>
 
+            {/* --- THANH ĐIỀU HƯỚNG PHÂN TRANG CỐ ĐỊNH Ở ĐÁY --- */}
+            {processedOrders.length > 0 && (
+                <div className="p-4 border-t border-slate-200 bg-white flex flex-wrap gap-4 items-center justify-between z-10 shrink-0">
+                    <div className="text-sm font-bold text-slate-500">
+                        Hiển thị {paginatedOrders.length} / Tổng số {processedOrders.length} hóa đơn
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-1.5">
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                            >
+                                Trước
+                            </button>
+                            <span className="px-4 py-1.5 text-sm font-black text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                Trang {currentPage} / {totalPages}
+                            </span>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {selectedOrder && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
@@ -421,14 +469,12 @@ export default function OrdersHistory({
                                         </div>
                                         
                                         <div className="flex items-center gap-3">
-                                            {/* HIỂN THỊ CẢNH BÁO NẾU ĐƠN BỊ KHÓA (Cho tất cả mọi người kể cả admin khi ở tab này) */}
                                             {isLocked && (
                                                 <span className="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-xl text-[10px] font-black border border-slate-300 hidden sm:flex items-center gap-1 uppercase tracking-widest shadow-inner">
                                                     🔒 Đã chốt ca
                                                 </span>
                                             )}
 
-                                            {/* ẨN NÚT SỬA/HỦY NẾU BỊ KHÓA */}
                                             {(selectedOrder.status === 'PENDING' || selectedOrder.status === 'PAID') && !isLocked && (
                                                 <>
                                                     <button 
@@ -585,7 +631,6 @@ export default function OrdersHistory({
                                                             ✅ ĐÃ THU BẰNG: {selectedOrder.paymentMethod === 'TRANSFER' ? 'CHUYỂN KHOẢN' : 'TIỀN MẶT'}
                                                         </div>
 
-                                                        {/* ẨN NÚT SỬA PHƯƠNG THỨC NẾU ĐƠN BỊ KHÓA */}
                                                         {onChangePaymentMethod && !isLocked && (
                                                             <div className="flex gap-3 animate-in fade-in pt-2">
                                                                 {selectedOrder.paymentMethod === 'CASH' ? (
