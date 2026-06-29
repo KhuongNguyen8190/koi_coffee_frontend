@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../../services/apiService';
 
@@ -9,21 +9,45 @@ export default function AdminProductManager({ categories = [] }) {
     const [editingProduct, setEditingProduct] = useState(null);
     const [formData, setFormData] = useState({ name: '', price: '', sku: '', categoryId: '', status: 'ACTIVE' });
 
+    // =========================================================================
+    // STATE PHÂN TRANG (PAGINATION)
+    // =========================================================================
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10); // Mặc định 10 món/trang
+
     useEffect(() => {
         fetchAdminProducts();
     }, []);
+
+    // Tự động Reset về Trang 1 nếu thay đổi số lượng hiển thị
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [itemsPerPage]);
 
     const fetchAdminProducts = async () => {
         setLoading(true);
         try {
             const res = await apiService.getAdminProducts();
-            setProducts(res.data || res || []);
+            // Tự động sắp xếp món mới (ID lớn) lên đầu
+            const sortedProducts = (res.data || res || []).sort((a, b) => b.id - a.id);
+            setProducts(sortedProducts);
         } catch (error) {
             toast.error("Lỗi khi tải danh sách món!");
         } finally {
             setLoading(false);
         }
     };
+
+    // =========================================================================
+    // XỬ LÝ DỮ LIỆU PHÂN TRANG
+    // =========================================================================
+    const totalPages = itemsPerPage === 'ALL' ? 1 : Math.ceil(products.length / itemsPerPage);
+    
+    const paginatedProducts = useMemo(() => {
+        if (itemsPerPage === 'ALL') return products;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return products.slice(startIndex, startIndex + itemsPerPage);
+    }, [products, currentPage, itemsPerPage]);
 
     const handleAddNew = () => {
         setEditingProduct(null);
@@ -57,10 +81,13 @@ export default function AdminProductManager({ categories = [] }) {
                 if (res.status === 'success') toast.success("Cập nhật thành công!");
             } else {
                 const res = await apiService.createAdminProduct(formData);
-                if (res.status === 'success') toast.success("Thêm món mới thành công!");
+                if (res.status === 'success') {
+                    toast.success("Thêm món mới thành công!");
+                    setCurrentPage(1); // Thêm mới thì nhảy về trang 1 để xem ngay
+                }
             }
             setIsModalOpen(false);
-            fetchAdminProducts(); // 🚀 Dữ liệu tải lại ngầm, Toast vẫn hiện bình thường
+            fetchAdminProducts(); // Dữ liệu tải lại ngầm, Toast vẫn hiện bình thường
         } catch (error) {
             toast.error("Thao tác thất bại!");
         }
@@ -116,48 +143,92 @@ export default function AdminProductManager({ categories = [] }) {
             {loading ? (
                 <div className="text-center text-slate-400 py-10 font-bold">Đang tải dữ liệu...</div>
             ) : (
-                <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
-                    <table className="w-full min-w-[500px] text-left text-xs md:text-sm text-slate-600">
-                        <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] md:text-xs border-b border-slate-200">
-                            <tr>
-                                <th className="px-4 py-3">ID</th>
-                                <th className="px-4 py-3">Tên món</th>
-                                <th className="px-4 py-3 hidden md:table-cell">Danh mục</th>
-                                <th className="px-4 py-3">Giá</th>
-                                <th className="px-4 py-3 text-center">Trạng thái</th>
-                                <th className="px-4 py-3 text-right">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {products.length === 0 && (
-                                <tr><td colSpan="6" className="text-center py-8 text-slate-400">Chưa có món ăn nào.</td></tr>
-                            )}
-                            {products.map(p => (
-                                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-3 font-bold text-slate-400">#{p.id}</td>
-                                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{p.name}</td>
-                                    <td className="px-4 py-3 hidden md:table-cell">{p.category?.name || '---'}</td>
-                                    <td className="px-4 py-3 font-bold text-emerald-600 whitespace-nowrap">{p.price.toLocaleString()} đ</td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-black uppercase whitespace-nowrap ${p.status?.toUpperCase() === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                            {p.status?.toUpperCase() === 'ACTIVE' ? 'Đang bán' : 'Hết món'}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
-                                        <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-bold bg-blue-50 px-2 md:px-3 py-1 rounded-lg">Sửa</button>
-                                        <button onClick={() => handleDeleteProduct(p.id, p.name)} className="text-rose-500 hover:text-rose-700 font-bold bg-rose-50 px-2 md:px-3 py-1 rounded-lg">Xóa</button>
-                                    </td>
+                <div className="w-full border border-slate-200 rounded-xl flex flex-col">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[500px] text-left text-xs md:text-sm text-slate-600">
+                            <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] md:text-xs border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-3">ID</th>
+                                    <th className="px-4 py-3">Tên món</th>
+                                    <th className="px-4 py-3 hidden md:table-cell">Danh mục</th>
+                                    <th className="px-4 py-3">Giá</th>
+                                    <th className="px-4 py-3 text-center">Trạng thái</th>
+                                    <th className="px-4 py-3 text-right">Thao tác</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {paginatedProducts.length === 0 && (
+                                    <tr><td colSpan="6" className="text-center py-8 text-slate-400">Chưa có món ăn nào.</td></tr>
+                                )}
+                                {paginatedProducts.map(p => (
+                                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-3 font-bold text-slate-400">#{p.id}</td>
+                                        <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{p.name}</td>
+                                        <td className="px-4 py-3 hidden md:table-cell">{p.category?.name || '---'}</td>
+                                        <td className="px-4 py-3 font-bold text-emerald-600 whitespace-nowrap">{p.price.toLocaleString()} đ</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`px-2 py-1 rounded-md text-[9px] md:text-[10px] font-black uppercase whitespace-nowrap ${p.status?.toUpperCase() === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                {p.status?.toUpperCase() === 'ACTIVE' ? 'Đang bán' : 'Hết món'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                                            <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-bold bg-blue-50 px-2 md:px-3 py-1 rounded-lg">Sửa</button>
+                                            <button onClick={() => handleDeleteProduct(p.id, p.name)} className="text-rose-500 hover:text-rose-700 font-bold bg-rose-50 px-2 md:px-3 py-1 rounded-lg">Xóa</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* --- THANH ĐIỀU HƯỚNG PHÂN TRANG --- */}
+                    {products.length > 0 && (
+                        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-4 items-center justify-between rounded-b-xl">
+                            <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                                <span>Hiển thị:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => setItemsPerPage(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                                    className="border border-slate-200 bg-white p-1.5 rounded-lg outline-none focus:border-emerald-500 text-slate-700 cursor-pointer"
+                                >
+                                    <option value={10}>10 món/trang</option>
+                                    <option value={20}>20 món/trang</option>
+                                    <option value={50}>50 món/trang</option>
+                                    <option value="ALL">Tất cả</option>
+                                </select>
+                                <span className="hidden sm:inline">/ Tổng số {products.length} món</span>
+                            </div>
+
+                            {itemsPerPage !== 'ALL' && totalPages > 1 && (
+                                <div className="flex items-center gap-1.5">
+                                    <button 
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                    >
+                                        Trước
+                                    </button>
+                                    <span className="px-4 py-1.5 text-sm font-black text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                        Trang {currentPage} / {totalPages}
+                                    </span>
+                                    <button 
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm"
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* MODAL THÊM / SỬA */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-xl font-black text-slate-800 mb-4">
                             {editingProduct ? 'Chỉnh Sửa Món' : 'Thêm Món Mới'}
                         </h3>

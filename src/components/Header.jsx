@@ -200,7 +200,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                 {/* Logo & Tiêu đề */}
                 <div className="flex items-center gap-2 md:gap-3 shrink-0">
                     <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center text-white text-base md:text-xl shadow-md shrink-0">
-                        ☕
+                        <img src="../Koi_Logo.png" alt="" />
                     </div>
                     <div className="shrink-0">
                         <h1 className="text-[15px] md:text-xl font-black text-slate-800 tracking-tight leading-none">KOI COFFEE</h1>
