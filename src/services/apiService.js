@@ -18,6 +18,9 @@ export const apiService = {
         }
     },
 
+    // 🚀 API MỚI: Kiểm tra Session xem có bị máy khác đăng nhập lấn không
+    verifySession: (payload) => axios.post(`${API_URL}/auth/verify-session`, payload).then(handleResponse),
+
     // API HỆ THỐNG: Giữ cho backend render.io không bị ngủ đông
     ping: () => axios.get(`${API_URL}/system/ping`).then(handleResponse),
 

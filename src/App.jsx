@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import ProductBody from './components/ProductBody';
@@ -9,7 +9,7 @@ import Login from './components/Login';
 import AdminManagement from './components/admin/AdminManagement';
 
 import { usePOSLogic } from './hooks/usePosLogic';
-import { apiService } from './services/apiService'; // Lưu ý: Điều chỉnh lại đường dẫn import này cho khớp với thư mục của bạn
+import { apiService } from './services/apiService';
 
 const MOCK_USERS = [
     { id: 1, username: 'admin', full_name: 'Quản Trị Viên Hệ Thống', role: 'ADMIN' },
@@ -33,6 +33,36 @@ export default function App() {
         handleChangeOrderStatus
     } = usePOSLogic();
 
+    // 🚀 STATE KIỂM TRA SESSION TRƯỚC KHI RENDER APP
+    const [isVerifyingSession, setIsVerifyingSession] = useState(true);
+
+    // 🚀 XÁC THỰC SESSION MỖI KHI LOAD TRANG TRÁNH VƯỢT RÀO BẰNG F5
+    useEffect(() => {
+        const verify = async () => {
+            const savedSession = localStorage.getItem('user_session');
+            if (savedSession) {
+                try {
+                    const userData = JSON.parse(savedSession);
+                    
+                    // Gọi API kiểm tra tính hợp lệ
+                    await apiService.verifySession({
+                        userId: userData.id,
+                        sessionId: userData.sessionId
+                    });
+
+                } catch (error) {
+                    // Nếu lỗi (401) hoặc máy khác đăng nhập => Xóa thông tin đăng nhập lập tức
+                    console.warn("Phiên đăng nhập không hợp lệ hoặc đã bị thay thế.");
+                    localStorage.removeItem('user_session');
+                    setCurrentUser(null);
+                }
+            }
+            setIsVerifyingSession(false);
+        };
+
+        verify();
+    }, [setCurrentUser]);
+
     // 🚀 LÊN LỊCH PING ĐỂ GIỮ SERVER RENDER.IO KHÔNG BỊ NGỦ ĐÔNG
     useEffect(() => {
         const keepServerAwake = async () => {
@@ -45,14 +75,9 @@ export default function App() {
 
         // Render.io sleep sau 15 phút. Set ping mỗi 10 phút (600,000 ms)
         const PING_INTERVAL = 600000;
-
-        // Khởi tạo interval đếm lùi
         const intervalId = setInterval(keepServerAwake, PING_INTERVAL);
-
-        // Gọi luôn 1 lần đầu tiên khi app vừa được mở lên
         keepServerAwake();
 
-        // Dọn dẹp interval khi đóng ứng dụng
         return () => clearInterval(intervalId);
     }, []);
 
@@ -66,9 +91,9 @@ export default function App() {
         });
     }, [ordersHistory, lastShiftEnd]);
 
-    if (!isAuthChecked) return <div className="min-h-screen bg-slate-900 flex justify-center items-center text-white font-bold tracking-wider">ĐANG TẢI...</div>;
+    // 🚀 Đã chặn màn hình tải cho đến khi cả usePOSLogic và API verifySession chạy xong
+    if (!isAuthChecked || isVerifyingSession) return <div className="min-h-screen bg-slate-900 flex justify-center items-center text-white font-bold tracking-wider">ĐANG TẢI...</div>;
 
-    // 🚀 Đã giới hạn maxToasts cho màn hình đăng nhập
     if (!currentUser) return (
         <>
             <Toaster maxToasts={1} toastOptions={{ duration: 2000, style: { maxWidth: '90vw', fontSize: '14px' } }} />
@@ -132,7 +157,7 @@ export default function App() {
                     {activeTab === 'pos' && (
                         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden w-full relative">
 
-                            {/* 🚀 OVERLAY CHẶN KHI CHƯA MỞ CA LÀM VIỆC */}
+                            {/* OVERLAY CHẶN KHI CHƯA MỞ CA LÀM VIỆC */}
                             {!isShiftOpen && (
                                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[70] flex flex-col items-center justify-center p-4">
                                     <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-sm animate-in zoom-in-95 duration-300">
