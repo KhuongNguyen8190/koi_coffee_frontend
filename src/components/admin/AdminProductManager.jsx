@@ -78,11 +78,10 @@ export default function AdminProductManager({ categories = [] }) {
         try {
             if (editingProduct) {
                 const res = await apiService.updateAdminProduct(editingProduct.id, formData);
-                if (res.status === 'success') toast.success("Cập nhật thành công!");
+                if (res.status === 'success');
             } else {
                 const res = await apiService.createAdminProduct(formData);
                 if (res.status === 'success') {
-                    toast.success("Thêm món mới thành công!");
                     setCurrentPage(1); // Thêm mới thì nhảy về trang 1 để xem ngay
                 }
             }
@@ -113,8 +112,6 @@ export default function AdminProductManager({ categories = [] }) {
                             try {
                                 const res = await apiService.deleteAdminProduct(id);
                                 if (res.status === 'success') {
-                                    toast.success("Đã xóa món ăn khỏi thực đơn!", {
-                                        duration: 3000, });
                                     fetchAdminProducts(); 
                                 } else {
                                     toast.error(res.message || "Xóa thất bại!");

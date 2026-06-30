@@ -64,7 +64,6 @@ export default function AdminCategoryManager() {
         try {
             const res = await apiService.deleteCategory(id);
             if (res.status === 'success') {
-                toast.success("Đã xóa danh mục!");
                 fetchCategories(); // 🚀 BỎ HÀM RELOAD Ở ĐÂY LUÔN
             } else {
                 toast.error(res.message || "Xóa thất bại!");

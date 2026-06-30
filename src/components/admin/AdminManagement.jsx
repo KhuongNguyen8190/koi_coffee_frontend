@@ -35,10 +35,10 @@ export default function AdminManagement({ users = [], categories = [], products 
         try {
             if (editingCat) {
                 const res = await apiService.updateCategory(editingCat.id, { name: catName });
-                if (res.status === 'success') toast.success("Cập nhật thành công!");
+                if (res.status === 'success');
             } else {
                 const res = await apiService.createCategory({ name: catName });
-                if (res.status === 'success') toast.success("Thêm mới thành công!");
+                if (res.status === 'success');
             }
             setIsCatModalOpen(false);
             fetchAdminCategories(); 
@@ -70,7 +70,6 @@ export default function AdminManagement({ users = [], categories = [], products 
                             try {
                                 const res = await apiService.deleteCategory(id);
                                 if (res.status === 'success') {
-                                    toast.success("Đã xóa danh mục!");
                                     fetchAdminCategories();
                                 } else {
                                     toast.error(res.message || "Xóa thất bại!");
