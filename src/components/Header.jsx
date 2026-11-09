@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../services/apiService';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket, useWebSocketStatus } from '../hooks/useWebSocket';
 
 // 🚀 IMPORT LOGO TỪ THƯ MỤC SRC
 import logoImg from '../img/Koi_Logo.png';
@@ -21,6 +21,7 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
     // 🚀 STATE MỚI: Quản lý ẩn/hiện chấm đỏ trên chuông và hẹn giờ 10 phút
     const [hideBellDot, setHideBellDot] = useState(false);
     const [bellOpenedAt, setBellOpenedAt] = useState(null);
+    const wsStatus = useWebSocketStatus();
 
     useEffect(() => {
         if (currentUser) {
@@ -207,7 +208,28 @@ export default function Header({ currentUser, onLogout, setCurrentUser }) {
                         <img src={logoImg} alt="Koi Coffee Logo" className="w-full h-full object-cover" />
                     </div>
                     <div className="shrink-0">
-                        <h1 className="text-[15px] md:text-xl font-black text-slate-800 tracking-tight leading-none">KOI COFFEE</h1>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-[15px] md:text-xl font-black text-slate-800 tracking-tight leading-none">KOI COFFEE</h1>
+                            {/* Trạng thái WebSocket thời gian thực */}
+                            {wsStatus === 'connected' && (
+                                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Trực tuyến
+                                </span>
+                            )}
+                            {(wsStatus === 'connecting' || wsStatus === 'reconnecting') && (
+                                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                    Đang kết nối...
+                                </span>
+                            )}
+                            {(wsStatus === 'disconnected' || wsStatus === 'error') && (
+                                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    Mất kết nối
+                                </span>
+                            )}
+                        </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 hidden sm:block">Hệ thống POS</p>
                     </div>
                 </div>

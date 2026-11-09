@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { apiService } from '../services/apiService';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -30,6 +30,14 @@ export const usePOSLogic = () => {
     }, [cart]);
 
     const [ordersHistory, setOrdersHistory] = useState([]);
+    const [ordersPagination, setOrdersPagination] = useState({
+        page: 0,
+        size: 50,
+        totalElements: 0,
+        totalPages: 1,
+        hasNext: false,
+        hasPrevious: false
+    });
     const [lastShiftEnd, setLastShiftEnd] = useState(null);
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [products, setProducts] = useState([]);
@@ -42,7 +50,7 @@ export const usePOSLogic = () => {
     // =========================================================================
     const forceKickOut = useCallback(() => {
         localStorage.setItem('kickout_penalty_until', (Date.now() + 10000).toString());
-        toast.dismiss(); // Xóa sạch toast cũ
+        toast.dismiss();
         toast.error("Tài khoản đang đăng nhập ở nơi khác!", {
             id: 'kickout_msg', duration: 5000, style: { fontWeight: 'bold' }
         });
@@ -51,16 +59,16 @@ export const usePOSLogic = () => {
         setActiveTab('pos');
     }, []);
 
-    useWebSocket(currentUser?.id ? `/topic/kickout/${currentUser.id}` : null, (rawBody) => {
+    useWebSocket(currentUser?.id ? `/topic/kickout/${currentUser.id}` : null, (incomingSessionId) => {
         if (!currentUser) return;
-        const incomingSessionId = rawBody.replace(/"/g, '');
-        if (currentUser.sessionId && incomingSessionId !== currentUser.sessionId) {
+        const cleanSessionId = typeof incomingSessionId === 'string' ? incomingSessionId.replace(/"/g, '') : incomingSessionId;
+        if (currentUser.sessionId && cleanSessionId !== currentUser.sessionId) {
             forceKickOut();
         }
     });
 
     // =========================================================================
-    // HÀM LẤY DỮ LIỆU & ĐỒNG BỘ TRẠNG THÁI CA TỪ SERVER
+    // HÀM LẤY DỮ LIỆU TÁCH BIỆT (CHỐNG SPAM TOÀN BỘ DATABASE KHI CHỈ ĐỔI 1 MỤC)
     // =========================================================================
     const extractSafeData = (res) => {
         if (!res) return [];
@@ -69,19 +77,53 @@ export const usePOSLogic = () => {
         return [];
     };
 
-    const fetchData = useCallback(async () => {
+    // 1. Chỉ tải đơn hàng (Có phân trang & Giới hạn từ SQL)
+    const fetchOrders = useCallback(async (params = {}) => {
         try {
-            const timestamp = new Date().getTime();
+            const queryParams = {
+                page: params.page !== undefined ? params.page : ordersPagination.page,
+                size: params.size !== undefined ? params.size : ordersPagination.size,
+                status: params.status !== undefined ? params.status : '',
+                search: params.search !== undefined ? params.search : '',
+                t: Date.now()
+            };
 
-            // Lấy toàn bộ dữ liệu song song (bao gồm cả danh sách ca)
-            const [ordersRes, productsRes, categoriesRes, shiftRes] = await Promise.all([
-                apiService.getOrders(`?t=${timestamp}`).catch(() => null),
-                apiService.getProducts(`?t=${timestamp}`).catch(() => null),
-                apiService.getCategories(`?t=${timestamp}`).catch(() => null),
-                apiService.getShifts(`?t=${timestamp}`).catch(() => null)
+            const ordersRes = await apiService.getOrders(queryParams);
+            if (ordersRes && ordersRes.data) {
+                setOrdersHistory(ordersRes.data || []);
+                if (ordersRes.lastShiftEnd) {
+                    setLastShiftEnd(ordersRes.lastShiftEnd);
+                }
+                if (ordersRes.pagination) {
+                    setOrdersPagination(ordersRes.pagination);
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi tải đơn hàng:", err);
+        }
+    }, [ordersPagination.page, ordersPagination.size]);
+
+    // 2. Chỉ tải Menu & Sản phẩm & Danh mục (Tận dụng Spring Cache Backend)
+    const fetchMenuAndProducts = useCallback(async () => {
+        try {
+            const timestamp = Date.now();
+            const [productsRes, categoriesRes] = await Promise.all([
+                apiService.getProducts({ t: timestamp }).catch(() => null),
+                apiService.getCategories({ t: timestamp }).catch(() => null)
             ]);
 
-            // 🚀 ĐỒNG BỘ CA: QUYẾT ĐỊNH DỰA VÀO DATABASE THAY VÌ TRÌNH DUYỆT
+            setProducts(extractSafeData(productsRes));
+            setCategories(extractSafeData(categoriesRes));
+        } catch (err) {
+            console.error("Lỗi tải danh mục / sản phẩm:", err);
+        }
+    }, []);
+
+    // 3. Chỉ kiểm tra ca làm việc
+    const fetchShifts = useCallback(async () => {
+        try {
+            const timestamp = Date.now();
+            const shiftRes = await apiService.getShifts({ t: timestamp });
             if (shiftRes) {
                 const shiftsData = extractSafeData(shiftRes);
                 const hasOpenShift = shiftsData.some(shift => shift.status === 'OPEN' || shift.status === 'ĐANG TRỰC');
@@ -93,45 +135,49 @@ export const usePOSLogic = () => {
                     localStorage.removeItem('pos_is_shift_open');
                 }
             }
-
-            if (ordersRes && ordersRes.data) {
-                setOrdersHistory(ordersRes.data || []);
-                setLastShiftEnd(ordersRes.lastShiftEnd);
-            }
-            setProducts(extractSafeData(productsRes));
-            setCategories(extractSafeData(categoriesRes));
-        } catch (error) {
-            console.error("Lỗi tải dữ liệu:", error);
+        } catch (err) {
+            console.error("Lỗi kiểm tra ca:", err);
         }
     }, []);
 
+    // Tải tất cả lúc khởi động ban đầu
+    const fetchData = useCallback(async () => {
+        await Promise.all([
+            fetchOrders(),
+            fetchMenuAndProducts(),
+            fetchShifts()
+        ]);
+    }, [fetchOrders, fetchMenuAndProducts, fetchShifts]);
+
     useEffect(() => {
-        if (currentUser) fetchData();
-    }, [currentUser, fetchData]);
+        if (currentUser) {
+            fetchData();
+        }
+    }, [currentUser]);
 
     // =========================================================================
-    // LẮNG NGHE WEBSOCKET THỜI GIAN THỰC
+    // LẮNG NGHE WEBSOCKET THỜI GIAN THỰC ĐƯỢC ĐIỀU HƯỚNG CHÍNH XÁC
     // =========================================================================
     useWebSocket('/topic/public', (rawBody) => {
         if (!currentUser) return;
-        const body = rawBody.replace(/"/g, '');
+        const body = typeof rawBody === 'string' ? rawBody.replace(/"/g, '') : (rawBody?.type || '');
 
-        // Tín hiệu từ Menu (Đã gắn ID để đè lên nhau, không kẹt màn hình)
         if (body.startsWith('MENU_NOTIFY:')) {
             const messageStr = body.substring(12);
             toast(messageStr, {
-                id: 'menu_notify', // ID cứng giúp thông báo sau ghi đè thông báo trước
+                id: 'menu_notify',
                 icon: '📢',
                 duration: 3500,
                 style: { background: '#0ea5e9', color: '#fff', fontWeight: 'bold' }
             });
-            fetchData();
+            // Chỉ tải lại menu & sản phẩm, không quét lại toàn bộ orders
+            fetchMenuAndProducts();
         }
         else if (body === 'SHIFT_OPENED') {
             localStorage.setItem('pos_is_shift_open', 'true');
             setIsShiftOpen(true);
             toast.dismiss('shift_closed_toast');
-            fetchData();
+            fetchShifts();
         }
         else if (body === 'SHIFT_CLOSED') {
             const ignoreUntil = localStorage.getItem('ignore_shift_closed_until');
@@ -142,12 +188,12 @@ export const usePOSLogic = () => {
                 localStorage.removeItem('pos_initial_cash');
                 setIsShiftOpen(false);
 
-                toast.dismiss(); // Xóa sạch để báo thông báo quan trọng
+                toast.dismiss();
                 toast('🔒 Máy khác vừa chốt ca. Hệ thống đã khóa!', {
                     id: 'shift_closed_toast',
                     icon: '⚠️', duration: 5000, style: { background: '#f59e0b', color: '#fff', fontWeight: 'bold' }
                 });
-                setTimeout(fetchData, 300);
+                setTimeout(fetchShifts, 300);
             }
         }
         else if (body.startsWith('USER_LOCKED:')) {
@@ -161,17 +207,31 @@ export const usePOSLogic = () => {
         else if (body === 'USER_LIST_CHANGED') {
             window.dispatchEvent(new Event('FORCE_RELOAD_USERS'));
         }
-        else if (body === 'DATA_CHANGED' || body === 'ORDER_CHANGED') {
-            setTimeout(() => {
-                fetchData();
-                if (body === 'ORDER_CHANGED') {
-                    const userRole = currentUser?.role?.toUpperCase() || '';
-                    if (userRole !== 'ADMIN' && userRole !== 'ROLE_ADMIN') {
-                        toast.success("Dữ liệu đơn vừa cập nhật!", { id: 'order_sync', duration: 1500 });
-                    }
-                }
-            }, 300);
+        else if (body === 'ORDER_CHANGED') {
+            // Chỉ tải lại danh sách đơn hàng!
+            fetchOrders();
+            const userRole = currentUser?.role?.toUpperCase() || '';
+            if (userRole !== 'ADMIN' && userRole !== 'ROLE_ADMIN') {
+                toast.success("Dữ liệu đơn vừa cập nhật!", { id: 'order_sync', duration: 1500 });
+            }
         }
+        else if (body === 'DATA_CHANGED') {
+            // Tải lại các thành phần thay đổi
+            fetchOrders();
+            fetchMenuAndProducts();
+        }
+    });
+
+    // Lắng nghe thêm kênh chuyên biệt /topic/orders
+    useWebSocket('/topic/orders', (event) => {
+        if (!currentUser) return;
+        fetchOrders();
+    });
+
+    // Lắng nghe thêm kênh chuyên biệt /topic/menu
+    useWebSocket('/topic/menu', (event) => {
+        if (!currentUser) return;
+        fetchMenuAndProducts();
     });
 
     const requireShiftOpen = () => {
@@ -214,11 +274,11 @@ export const usePOSLogic = () => {
     };
 
     // =========================================================================
-    // CÁC HÀM THAO TÁC POS (Dọn dẹp toast trước khi hiện cái mới)
+    // CÁC HÀM THAO TÁC POS
     // =========================================================================
     const addToCart = (product) => {
         if (!requireShiftOpen()) return;
-        toast.dismiss('add_cart_toast'); // Xóa thông báo thêm giỏ hàng cũ nếu bấm nhanh
+        toast.dismiss('add_cart_toast');
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
@@ -239,7 +299,13 @@ export const usePOSLogic = () => {
 
     const handleEditOrder = (order) => {
         if (!requireShiftOpen()) return;
-        const mappedCart = order.orderDetails.map(detail => ({ id: detail.product.id, name: detail.product.name, price: detail.price, quantity: detail.quantity, note: detail.note || '' }));
+        const mappedCart = order.orderDetails.map(detail => ({
+            id: detail.product.id,
+            name: detail.product.name,
+            price: detail.price,
+            quantity: detail.quantity,
+            note: detail.note || ''
+        }));
         setCart(mappedCart);
         setEditingOrderId(order.id);
         setActiveTab('pos');
@@ -286,11 +352,18 @@ export const usePOSLogic = () => {
         try {
             const res = editingOrderId ? await apiService.updateOrder(editingOrderId, payload) : await apiService.createOrder(payload);
             if (res && res.status === 'success') {
-                toast.dismiss(); // Xóa các toast rác
+                toast.dismiss();
                 toast.success(editingOrderId ? "Cập nhật thành công!" : "Tạo đơn thành công!", { id: 'order_success', duration: 2000 });
-                setCart([]); setEditingOrderId(null); fetchData(); setActiveTab('history');
-            } else toast.error("Thao tác thất bại!", { id: 'order_fail', duration: 2000 });
-        } catch (error) { toast.error("Lỗi hệ thống!", { id: 'order_err', duration: 2000 }); }
+                setCart([]);
+                setEditingOrderId(null);
+                fetchOrders();
+                setActiveTab('history');
+            } else {
+                toast.error("Thao tác thất bại!", { id: 'order_fail', duration: 2000 });
+            }
+        } catch (error) {
+            toast.error("Lỗi hệ thống!", { id: 'order_err', duration: 2000 });
+        }
     };
 
     const handleUpdateOrder = async (id, discountVal, discountType) => {
@@ -305,12 +378,11 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success("Thanh toán thành công!", { id: 'pay_ok', duration: 2000 });
-                setTimeout(() => {
-                    fetchData(res.data);
-                }, 2000);
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error("Lỗi thanh toán!", { id: 'pay_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error("Lỗi thanh toán!", { id: 'pay_err', duration: 2000 });
+        }
     };
 
     const handleSplitOrder = async (orderId, splitItems, method) => {
@@ -321,9 +393,11 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success("Tách món & thanh toán OK!", { id: 'split_ok', duration: 2000 });
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error("Lỗi tách đơn!", { id: 'split_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error("Lỗi tách đơn!", { id: 'split_err', duration: 2000 });
+        }
     };
 
     const handleCancelOrder = async (orderId) => {
@@ -333,9 +407,11 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success('Đã Hủy đơn!', { id: 'cancel_ok', duration: 2000 });
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error('Lỗi hủy đơn!', { id: 'cancel_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error('Lỗi hủy đơn!', { id: 'cancel_err', duration: 2000 });
+        }
     };
 
     const handleRestoreOrder = async (orderId) => {
@@ -345,9 +421,11 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success('Đã khôi phục đơn!', { id: 'restore_ok', duration: 2000 });
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error('Lỗi khôi phục!', { id: 'restore_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error('Lỗi khôi phục!', { id: 'restore_err', duration: 2000 });
+        }
     };
 
     const handleChangePaymentMethod = async (orderId, newMethod) => {
@@ -357,9 +435,11 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success(`Đổi sang: ${newMethod === 'CASH' ? 'Tiền mặt' : 'C.Khoản'}`, { id: 'method_ok', duration: 2000 });
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error('Lỗi đổi phương thức!', { id: 'method_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error('Lỗi đổi phương thức!', { id: 'method_err', duration: 2000 });
+        }
     };
 
     const handleChangeOrderStatus = async (orderId, newStatus) => {
@@ -369,17 +449,20 @@ export const usePOSLogic = () => {
             if (res && res.status === 'success') {
                 toast.dismiss();
                 toast.success('Đã cập nhật trạng thái!', { id: 'status_ok', duration: 2000 });
-                fetchData();
+                fetchOrders();
             }
-        } catch (error) { toast.error('Lỗi cập nhật trạng thái!', { id: 'status_err', duration: 2000 }); }
+        } catch (error) {
+            toast.error('Lỗi cập nhật trạng thái!', { id: 'status_err', duration: 2000 });
+        }
     };
 
     return {
         currentUser, setCurrentUser, isAuthChecked, activeTab, setActiveTab,
-        isShiftOpen, setIsShiftOpen, cart, ordersHistory, lastShiftEnd, editingOrderId,
-        products, categories, fetchData, handleLogout, handleEndShift,
-        addToCart, updateQuantity, updateNote, handleCreateOrder, handleUpdateOrder,
-        handlePayOrder, handleSplitOrder, handleEditOrder, cancelEdit, handleCancelOrder,
-        handleRestoreOrder, handleChangePaymentMethod, handleChangeOrderStatus
+        isShiftOpen, setIsShiftOpen, cart, ordersHistory, ordersPagination, lastShiftEnd, editingOrderId,
+        products, categories, fetchData, fetchOrders, fetchMenuAndProducts, fetchShifts,
+        handleLogout, handleEndShift, addToCart, updateQuantity, updateNote,
+        handleCreateOrder, handleUpdateOrder, handlePayOrder, handleSplitOrder,
+        handleEditOrder, cancelEdit, handleCancelOrder, handleRestoreOrder,
+        handleChangePaymentMethod, handleChangeOrderStatus
     };
 };

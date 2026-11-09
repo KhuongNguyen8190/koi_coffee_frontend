@@ -21,8 +21,9 @@ export default function App() {
         currentUser, setCurrentUser, isAuthChecked,
         activeTab, setActiveTab,
         isShiftOpen,
-        cart, ordersHistory, lastShiftEnd, editingOrderId,
+        cart, ordersHistory, ordersPagination, lastShiftEnd, editingOrderId,
         menu, products, categories,
+        fetchOrders,
         handleLogout, handleEndShift,
         addToCart, updateQuantity, updateNote,
         handleCreateOrder, handlePayOrder, handleSplitOrder, handleEditOrder, cancelEdit,
@@ -205,6 +206,8 @@ export default function App() {
                     {activeTab === 'history' && (
                         <OrdersHistory
                             orders={ordersHistory}
+                            pagination={ordersPagination}
+                            onFetchOrders={fetchOrders}
                             lastShiftEnd={lastShiftEnd}
                             currentUser={currentUser}
                             onEditOrder={handleEditOrder}
