@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE_URL = 'https://koi-coffee-backend-au41.onrender.com';
+export const API_BASE_URL = 'https://koi-coffee-backend.onrender.com';
 const API_URL = `${API_BASE_URL}/api`;
 
 const handleResponse = (response) => response.data;
