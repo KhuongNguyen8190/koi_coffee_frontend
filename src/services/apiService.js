@@ -4,7 +4,7 @@ import axios from 'axios';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? 'http://localhost:8080'
-        : 'https://koi-coffee-backend.onrender.com');
+        : 'https://koi-coffee-backend-au41.onrender.com');
 
 const API_URL = `${API_BASE_URL}/api`;
 

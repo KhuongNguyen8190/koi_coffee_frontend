@@ -70,7 +70,7 @@ export default function App() {
             try {
                 await apiService.ping();
             } catch (error) {
-                console.error("Failed to ping backend server. 🔴", error);
+                console.debug("Ping backend status:", error?.message);
             }
         };
 

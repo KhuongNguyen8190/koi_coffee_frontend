@@ -9,11 +9,14 @@ class WebSocketManager {
         this.client = null;
         this.subscribers = new Map(); // topic -> Set of callbacks
         this.statusListeners = new Set();
-        this.status = 'disconnected'; // 'disconnected' | 'connecting' | 'connected' | 'error'
+        this.status = 'disconnected'; // 'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting'
         this.reconnectAttempts = 0;
+        this.isDeactivated = false;
+        this.pauseUntil = 0;
     }
 
     notifyStatus(newStatus) {
+        if (this.status === newStatus) return;
         this.status = newStatus;
         this.statusListeners.forEach((listener) => {
             try {
@@ -25,17 +28,25 @@ class WebSocketManager {
     }
 
     initClient() {
-        if (this.client) return;
+        // Nếu không có ai đăng ký topic nào thì không cần kết nối
+        if (this.subscribers.size === 0) return;
+        if (this.client && this.client.active) return;
+        if (Date.now() < this.pauseUntil) return;
 
+        this.isDeactivated = false;
         const socketUrl = `${API_BASE_URL}/ws`;
         this.notifyStatus('connecting');
 
         this.client = new Client({
-            webSocketFactory: () => new SockJS(socketUrl),
-            reconnectDelay: 4000,
-            heartbeatIncoming: 10000,
-            heartbeatOutgoing: 10000,
-            debug: () => {}, // Tắt spam log ở console
+            // SockJS với danh sách transport giới hạn tránh spam fallback làm kích hoạt 429
+            webSocketFactory: () => new SockJS(socketUrl, null, {
+                transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+                timeout: 10000
+            }),
+            reconnectDelay: 8000, // Đợi tối thiểu 8 giây trước khi thử kết nối lại
+            heartbeatIncoming: 15000,
+            heartbeatOutgoing: 15000,
+            debug: () => {}, // Không spam log ở console
             onConnect: () => {
                 this.reconnectAttempts = 0;
                 this.notifyStatus('connected');
@@ -49,52 +60,75 @@ class WebSocketManager {
                 this.notifyStatus('disconnected');
             },
             onStompError: (frame) => {
-                console.warn('[WebSocket] STOMP Error: ', frame.headers?.message || frame);
                 this.notifyStatus('error');
             },
             onWebSocketClose: () => {
                 this.reconnectAttempts++;
-                this.notifyStatus(this.reconnectAttempts > 1 ? 'reconnecting' : 'disconnected');
+                if (this.reconnectAttempts >= 5) {
+                    // Nếu thất bại liên tiếp 5 lần (ví dụ server sleep hoặc rate-limit), tạm ngưng 25s
+                    this.pauseUntil = Date.now() + 25000;
+                    this.notifyStatus('disconnected');
+                    try {
+                        this.client?.deactivate();
+                    } catch (e) {}
+                    this.client = null;
+
+                    setTimeout(() => {
+                        if (this.subscribers.size > 0 && !this.client) {
+                            this.reconnectAttempts = 0;
+                            this.initClient();
+                        }
+                    }, 25000);
+                    return;
+                }
+                this.notifyStatus('reconnecting');
             }
         });
 
-        this.client.activate();
+        try {
+            this.client.activate();
+        } catch (err) {
+            console.warn('[WebSocket] Activation failed:', err?.message);
+        }
     }
 
     _subscribeTopic(topic) {
         if (!this.client || !this.client.connected) return;
 
-        // Nếu đã có stomp subscription cho topic này, không subscribe đè
-        if (this.stompSubscriptions?.has(topic)) return;
-
         if (!this.stompSubscriptions) {
             this.stompSubscriptions = new Map();
         }
 
-        const sub = this.client.subscribe(topic, (message) => {
-            let parsed = message.body;
-            try {
-                // Thử parse JSON nếu backend gửi WsEvent object
-                if (typeof message.body === 'string' && (message.body.startsWith('{') || message.body.startsWith('['))) {
-                    parsed = JSON.parse(message.body);
-                }
-            } catch (e) {
-                parsed = message.body;
-            }
+        // Nếu đã có stomp subscription cho topic này, không subscribe trùng
+        if (this.stompSubscriptions.has(topic)) return;
 
-            const callbacks = this.subscribers.get(topic);
-            if (callbacks) {
-                callbacks.forEach((cb) => {
-                    try {
-                        cb(parsed, message.body);
-                    } catch (cbErr) {
-                        console.error('[WebSocket] Error in message callback for ' + topic, cbErr);
+        try {
+            const sub = this.client.subscribe(topic, (message) => {
+                let parsed = message.body;
+                try {
+                    if (typeof message.body === 'string' && (message.body.startsWith('{') || message.body.startsWith('['))) {
+                        parsed = JSON.parse(message.body);
                     }
-                });
-            }
-        });
+                } catch (e) {
+                    parsed = message.body;
+                }
 
-        this.stompSubscriptions.set(topic, sub);
+                const callbacks = this.subscribers.get(topic);
+                if (callbacks) {
+                    callbacks.forEach((cb) => {
+                        try {
+                            cb(parsed, message.body);
+                        } catch (cbErr) {
+                            console.error('[WebSocket] Error in message callback for ' + topic, cbErr);
+                        }
+                    });
+                }
+            });
+
+            this.stompSubscriptions.set(topic, sub);
+        } catch (err) {
+            console.warn('[WebSocket] Subscribe error on ' + topic, err?.message);
+        }
     }
 
     subscribe(topic, callback) {
@@ -125,6 +159,15 @@ class WebSocketManager {
                         this.stompSubscriptions.delete(topic);
                     }
                 }
+            }
+
+            // Nếu không còn ai subscribe topic nào, ngắt kết nối websocket giải phóng tài nguyên
+            if (this.subscribers.size === 0 && this.client) {
+                try {
+                    this.client.deactivate();
+                } catch (e) {}
+                this.client = null;
+                this.notifyStatus('disconnected');
             }
         };
     }

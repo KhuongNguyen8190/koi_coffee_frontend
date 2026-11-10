@@ -156,9 +156,9 @@ export const usePOSLogic = () => {
     }, [currentUser]);
 
     // =========================================================================
-    // LẮNG NGHE WEBSOCKET THỜI GIAN THỰC ĐƯỢC ĐIỀU HƯỚNG CHÍNH XÁC
+    // LẮNG NGHE WEBSOCKET THỜI GIAN THỰC ĐƯỢC ĐIỀU HƯỚNG CHÍNH XÁC (CHỈ KHI ĐÃ ĐĂNG NHẬP)
     // =========================================================================
-    useWebSocket('/topic/public', (rawBody) => {
+    useWebSocket(currentUser ? '/topic/public' : null, (rawBody) => {
         if (!currentUser) return;
         const body = typeof rawBody === 'string' ? rawBody.replace(/"/g, '') : (rawBody?.type || '');
 
@@ -223,13 +223,13 @@ export const usePOSLogic = () => {
     });
 
     // Lắng nghe thêm kênh chuyên biệt /topic/orders
-    useWebSocket('/topic/orders', (event) => {
+    useWebSocket(currentUser ? '/topic/orders' : null, (event) => {
         if (!currentUser) return;
         fetchOrders();
     });
 
     // Lắng nghe thêm kênh chuyên biệt /topic/menu
-    useWebSocket('/topic/menu', (event) => {
+    useWebSocket(currentUser ? '/topic/menu' : null, (event) => {
         if (!currentUser) return;
         fetchMenuAndProducts();
     });
