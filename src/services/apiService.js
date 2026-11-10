@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 // 🚀 Tự động nhận diện môi trường: Nếu chạy trên localhost thì trỏ về backend local, ngược lại dùng Cloud
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? 'http://localhost:8080' 
+        ? 'http://localhost:8080'
         : 'https://koi-coffee-backend.onrender.com');
 
 const API_URL = `${API_BASE_URL}/api`;
@@ -54,7 +54,7 @@ export const apiService = {
     updateOrder: (id, payload) => axios.put(`${API_URL}/orders/${id}`, payload).then(handleResponse),
     payOrder: (id, method) => axios.put(`${API_URL}/orders/${id}/pay?method=${method}`).then(handleResponse),
     splitOrder: (id, payload) => axios.post(`${API_URL}/orders/${id}/split`, payload).then(handleResponse),
-    
+
     // Thao tác nhanh đơn hàng
     changeOrderStatus: (id, status) => axios.put(`${API_URL}/orders/${id}/status?status=${status}`, {}).then(handleResponse),
     changePaymentMethod: (id, method) => axios.put(`${API_URL}/orders/${id}/payment-method?method=${method}`, {}).then(handleResponse),
@@ -66,12 +66,12 @@ export const apiService = {
     openShift: (payload) => axios.post(`${API_URL}/shifts/open`, payload).then(handleResponse),
     closeShift: (payload) => axios.post(`${API_URL}/shifts/close`, payload).then(handleResponse),
     getLatestShiftCash: () => axios.get(`${API_URL}/shifts/latest-cash`).then(handleResponse),
-    getShifts: (params) => axios.get(`${API_URL}/shifts${buildQueryString(params)}`).then(handleResponse), 
-    
+    getShifts: (params) => axios.get(`${API_URL}/shifts${buildQueryString(params)}`).then(handleResponse),
+
     // Quản lý Ca (Admin)
     createAdminShift: (payload) => axios.post(`${API_URL}/admin/shifts`, payload).then(handleResponse),
     updateAdminShift: (id, payload) => axios.put(`${API_URL}/admin/shifts/${id}`, payload).then(handleResponse),
-    deleteShift: (id) => axios.delete(`${API_URL}/admin/shifts/${id}`).then(handleResponse),    
+    deleteShift: (id) => axios.delete(`${API_URL}/admin/shifts/${id}`).then(handleResponse),
 
     // Quản lý Users (Cache + Phân trang)
     getUsers: (params) => axios.get(`${API_URL}/admin/users${buildQueryString(params)}`).then(handleResponse),
