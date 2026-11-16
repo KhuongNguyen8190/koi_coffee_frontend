@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import ProductBody from './components/ProductBody';
@@ -34,39 +34,38 @@ export default function App() {
         handleChangeOrderStatus
     } = usePOSLogic();
 
-    // 🚀 STATE KIỂM TRA SESSION TRƯỚC KHI RENDER APP
-    const [isVerifyingSession, setIsVerifyingSession] = useState(true);
-
-    // 🚀 XÁC THỰC SESSION MỖI KHI LOAD TRANG TRÁNH VƯỢT RÀO BẰNG F5
+    // 🚀 XÁC THỰC SESSION CHẠY NGẦM (KHÔNG CHẶN GIAO DIỆN KHI VÀO TRANG)
     useEffect(() => {
         const verify = async () => {
             const savedSession = localStorage.getItem('user_session');
-            if (savedSession) {
-                try {
-                    const userData = JSON.parse(savedSession);
-
-                    // Gọi API kiểm tra tính hợp lệ
-                    await apiService.verifySession({
-                        userId: userData.id,
-                        sessionId: userData.sessionId
-                    });
-
-                } catch (error) {
-                    // Nếu lỗi (401) hoặc máy khác đăng nhập => Xóa thông tin đăng nhập lập tức
+            if (!savedSession) return;
+            try {
+                const userData = JSON.parse(savedSession);
+                await apiService.verifySession({
+                    userId: userData.id,
+                    sessionId: userData.sessionId
+                });
+            } catch (error) {
+                const status = error?.response?.status;
+                // Chỉ đăng xuất khi máy chủ xác nhận session không hợp lệ (401/403), tránh đăng xuất oan khi server đang wake up
+                if (status === 401 || status === 403) {
                     console.warn("Phiên đăng nhập không hợp lệ hoặc đã bị thay thế.");
                     localStorage.removeItem('user_session');
                     setCurrentUser(null);
                 }
             }
-            setIsVerifyingSession(false);
         };
 
         verify();
     }, [setCurrentUser]);
 
-    // 🚀 LÊN LỊCH PING ĐỂ GIỮ SERVER RENDER.IO KHÔNG BỊ NGỦ ĐÔNG
+    // 🚀 LÊN LỊCH PING MỖI 4 PHÚT + KHI MỞ LẠI TAB ĐỂ GIỮ SERVER RENDER KHÔNG BỊ SHUTDOWN SAU 15 PHÚT
     useEffect(() => {
-        const keepServerAwake = async () => {
+        let lastPingAt = 0;
+        const keepServerAwake = async (force = false) => {
+            const now = Date.now();
+            if (!force && now - lastPingAt < 120000) return;
+            lastPingAt = now;
             try {
                 await apiService.ping();
             } catch (error) {
@@ -74,12 +73,22 @@ export default function App() {
             }
         };
 
-        // Render.io sleep sau 15 phút. Set ping mỗi 10 phút (600,000 ms)
-        const PING_INTERVAL = 600000;
-        const intervalId = setInterval(keepServerAwake, PING_INTERVAL);
-        keepServerAwake();
+        // Render Free tier tắt sau 15 phút không có request. Ping mỗi 4 phút (240,000 ms)
+        const PING_INTERVAL = 240000;
+        const intervalId = setInterval(() => keepServerAwake(true), PING_INTERVAL);
+        keepServerAwake(true);
 
-        return () => clearInterval(intervalId);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                keepServerAwake(false);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const currentShiftOrders = useMemo(() => {
@@ -92,8 +101,7 @@ export default function App() {
         });
     }, [ordersHistory, lastShiftEnd]);
 
-    // 🚀 Đã chặn màn hình tải cho đến khi cả usePOSLogic và API verifySession chạy xong
-    if (!isAuthChecked || isVerifyingSession) return <div className="min-h-screen bg-slate-900 flex justify-center items-center text-white font-bold tracking-wider">ĐANG TẢI...</div>;
+    if (!isAuthChecked) return <div className="min-h-screen bg-slate-900 flex justify-center items-center text-white font-bold tracking-wider">ĐANG TẢI...</div>;
 
     if (!currentUser) return (
         <>

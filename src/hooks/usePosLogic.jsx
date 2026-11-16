@@ -40,8 +40,22 @@ export const usePOSLogic = () => {
     });
     const [lastShiftEnd, setLastShiftEnd] = useState(null);
     const [editingOrderId, setEditingOrderId] = useState(null);
-    const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
+    const [products, setProducts] = useState(() => {
+        try {
+            const cached = localStorage.getItem('pos_menu_cache');
+            return cached ? (JSON.parse(cached).products || []) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [categories, setCategories] = useState(() => {
+        try {
+            const cached = localStorage.getItem('pos_menu_cache');
+            return cached ? (JSON.parse(cached).categories || []) : [];
+        } catch {
+            return [];
+        }
+    });
 
     useEffect(() => localStorage.setItem('current_tab', activeTab), [activeTab]);
 
@@ -103,15 +117,30 @@ export const usePOSLogic = () => {
         }
     }, [ordersPagination.page, ordersPagination.size]);
 
-    // 2. Chỉ tải Menu & Sản phẩm & Danh mục (Tận dụng Spring Cache Backend)
+    // 2. Chỉ tải Menu & Sản phẩm & Danh mục (1 request duy nhất từ Spring Cache Backend + lưu localStorage cache)
     const fetchMenuAndProducts = useCallback(async () => {
         try {
-            const timestamp = Date.now();
-            const [productsRes, categoriesRes] = await Promise.all([
-                apiService.getProducts({ t: timestamp }).catch(() => null),
-                apiService.getCategories({ t: timestamp }).catch(() => null)
-            ]);
+            const menuRes = await apiService.getMenu();
+            if (menuRes && menuRes.data) {
+                const nextProducts = menuRes.data.products || [];
+                const nextCategories = menuRes.data.categories || [];
+                setProducts(nextProducts);
+                setCategories(nextCategories);
+                try {
+                    localStorage.setItem('pos_menu_cache', JSON.stringify({
+                        products: nextProducts,
+                        categories: nextCategories,
+                        updatedAt: Date.now()
+                    }));
+                } catch {}
+                return;
+            }
 
+            // Fallback nếu /menu không khả dụng
+            const [productsRes, categoriesRes] = await Promise.all([
+                apiService.getProducts().catch(() => null),
+                apiService.getCategories().catch(() => null)
+            ]);
             setProducts(extractSafeData(productsRes));
             setCategories(extractSafeData(categoriesRes));
         } catch (err) {
@@ -119,14 +148,14 @@ export const usePOSLogic = () => {
         }
     }, []);
 
-    // 3. Chỉ kiểm tra ca làm việc
+    // 3. Chỉ kiểm tra ca làm việc hiện tại (Query 1 dòng thay vì tải toàn bộ lịch sử ca)
     const fetchShifts = useCallback(async () => {
         try {
-            const timestamp = Date.now();
-            const shiftRes = await apiService.getShifts({ t: timestamp });
-            if (shiftRes) {
-                const shiftsData = extractSafeData(shiftRes);
-                const hasOpenShift = shiftsData.some(shift => shift.status === 'OPEN' || shift.status === 'ĐANG TRỰC');
+            const shiftRes = await apiService.getCurrentShift();
+            if (shiftRes !== undefined) {
+                const hasOpenShift = Boolean(
+                    shiftRes?.data && (shiftRes.data.status === 'OPEN' || shiftRes.data.status === 'ĐANG TRỰC')
+                );
 
                 setIsShiftOpen(hasOpenShift);
                 if (hasOpenShift) {
